@@ -24,7 +24,6 @@ app.get('/', (req, res) => {
     res.send('API funcionando');
 });
 
-// Endpoint para el login
 app.post('/login', (req, res) => {
     const { email, password } = req.body; // Captura email y password desde el cuerpo de la solicitud
 
@@ -34,9 +33,9 @@ app.post('/login', (req, res) => {
             console.error('Error en la consulta:', err);
             res.status(500).json({ error: 'Error en el servidor' });
         } else if (row) {
-            res.status(200).json({ success: true, alumno: row }); // Responde con los datos del alumno
+            res.status(200).json({ success: true, nombre: row.nombre }); // Responde con el nombre del alumno
         } else {
-            res.status(401).json({ success: false, message: 'Credenciales inválidas' }); // Credenciales incorrectas
+            res.status(401).json({ success: false, message: 'Usuario no registrado o contraseña incorrecta' }); // Credenciales incorrectas
         }
     });
 });
