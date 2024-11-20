@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Button, Alert } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Button } from 'react-native';
 
-export default function Login({ setIsLoggedIn, setNombre }) {
+export default function Login({ setIsLoggedIn, setNombre, setIsRegistering }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const [errorMessage, setErrorMessage] = useState(''); // Estado para el mensaje de error
+  
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor ingrese email y contraseña');
+      setErrorMessage('Por favor ingrese email y contraseña');
       return;
     }
 
@@ -23,20 +25,23 @@ export default function Login({ setIsLoggedIn, setNombre }) {
       const data = await response.json();
 
       if (response.ok) {
+        setErrorMessage(''); // Limpia el mensaje de error si el inicio de sesión es exitoso
         setNombre(data.nombre);
         setIsLoggedIn(true);
       } else {
-        Alert.alert('Error', data.message || 'Usuario no registrado o contraseña incorrecta');
+        const errorMessage = data?.message || 'Usuario no registrado o contraseña incorrecta';
+        setErrorMessage(errorMessage); // Muestra el mensaje de error en pantalla
       }
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'Algo salió mal, intente nuevamente');
+      console.error('Error en la solicitud:', error);
+      setErrorMessage('Algo salió mal, intente nuevamente'); // Muestra un mensaje genérico en caso de fallo
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Buvle App</Text>
+      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null} {/* Muestra el mensaje de error */}
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -52,6 +57,11 @@ export default function Login({ setIsLoggedIn, setNombre }) {
         onChangeText={setPassword}
       />
       <Button title="Iniciar Sesión" onPress={handleLogin} />
+
+      <View style={styles.registerContainer}>
+        <Text>¿No tienes cuenta?</Text>
+        <Button title="Regístrate" onPress={() => setIsRegistering(true)} />
+      </View>
     </View>
   );
 }
@@ -76,5 +86,14 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 10,
     backgroundColor: '#fff',
+  },
+  error: {
+    color: 'red',
+    marginBottom: 10, // Espacio entre el error y el siguiente campo
+    textAlign: 'center',
+  },
+  registerContainer: {
+    marginTop: 20,
+    alignItems: 'center',
   },
 });
