@@ -24,6 +24,8 @@ app.get('/', (req, res) => {
     res.send('API funcionando');
 });
 
+// Este es el login si ya tienes una cuenta
+
 app.post('/login', (req, res) => {
     const { email, password } = req.body; // Captura email y password desde el cuerpo de la solicitud
 
@@ -39,6 +41,8 @@ app.post('/login', (req, res) => {
         }
     });
 });
+
+// este es para crear una cuenta si eres nuevo usuario.
 
 app.post('/register', (req, res) => {
     const { nombre, email, password, confirmPassword } = req.body;

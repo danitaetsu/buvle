@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Login from './components/Login';
-import Register from './components/Register';
 import PersonalArea from './pages/PersonalArea';
 
 export default function App() {
