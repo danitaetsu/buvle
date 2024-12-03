@@ -40,6 +40,47 @@ app.post('/login', (req, res) => {
     });
 });
 
+app.post('/register', (req, res) => {
+    const { nombre, email, password, confirmPassword } = req.body;
+
+    // Validar que todos los campos estén presentes
+    if (!nombre || !email || !password || !confirmPassword) {
+        return res.status(400).json({ success: false, message: 'Todos los campos son obligatorios' });
+    }
+
+    // Validar que las contraseñas coincidan
+    if (password !== confirmPassword) {
+        return res.status(400).json({ success: false, message: 'Las contraseñas no coinciden' });
+    }
+
+    // Verificar si el correo ya existe
+    const checkEmailQuery = 'SELECT * FROM Alumnos WHERE email = ?';
+    db.get(checkEmailQuery, [email], (err, row) => {
+        if (err) {
+            console.error('Error al verificar el correo:', err);
+            return res.status(500).json({ success: false, message: 'Error en el servidor al verificar el correo' });
+        }
+
+        if (row) {
+            console.log('Correo ya registrado:', email);
+            return res.status(400).json({ success: false, message: 'El correo ya está registrado' });
+        }
+
+        // Insertar el nuevo alumno en la base de datos
+        const insertQuery = 'INSERT INTO Alumnos (nombre, email, password) VALUES (?, ?, ?)';
+        db.run(insertQuery, [nombre, email, password], (err) => {
+            if (err) {
+                console.error('Error al registrar el alumno:', err);
+                return res.status(500).json({ success: false, message: 'Error al registrar al usuario' });
+            }
+
+            // Registro exitoso
+            console.log('Alumno registrado con éxito:', nombre, email);
+            res.status(201).json({ success: true, message: 'Alumno registrado con éxito' });
+        });
+    });
+});
+
 
 // Iniciar el servidor
 app.listen(port, () => {
