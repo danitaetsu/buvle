@@ -1,12 +1,22 @@
-version: '3.8'
+
 services:
   backend:
     build:
-      context: ./Backend # Ruta al directorio donde está el Dockerfile
+      context: ./Backend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000" # Expone el puerto del contenedor al host
+      - "3000:3000"
     volumes:
-      - .:/app # Sincroniza los archivos locales con el contenedor
+      - ./Backend:/app
+    environment:
+      - NODE_ENV=development
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./Frontend:/app
     environment:
       - NODE_ENV=development

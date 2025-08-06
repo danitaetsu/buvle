@@ -1,6 +1,46 @@
+/*
+
+ESTAS SON LAS NUEVAS TABLAS.
+
+
+
+CREATE TABLE Alumnos (
+    id_alumno INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+);
+
+
+
+CREATE TABLE Turnos (
+    id_turno INTEGER PRIMARY KEY AUTOINCREMENT,
+    dia INTEGER NOT NULL CHECK(dia BETWEEN 1 AND 5),
+    hora_inicio TEXT NOT NULL CHECK(hora_inicio IN ('12:00', '17:00', '19:00')),
+    hora_fin TEXT NOT NULL CHECK(hora_fin IN ('14:00', '19:00', '21:00')),
+    max_alumnos INTEGER NOT NULL DEFAULT 6
+);
+
+
+
+CREATE TABLE Reservas(
+    id_reserva INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_alumno INTEGER NOT NULL,
+    id_turno INTEGER NOT NULL,
+    fecha_clase DATE NOT NULL,
+    FOREIGN KEY (id_alumno) REFERENCES Alumnos(id_alumno) ON DELETE CASCADE,
+    FOREIGN KEY (id_turno) REFERENCES Turnos(id_turno) ON DELETE CASCADE
+);
+
+
+
+
+
+
+
 -- Creación de la tabla Alumnos
 
-/*
+
 
 --Creación de la tabla alumnos.
 
@@ -90,14 +130,52 @@ LEFT JOIN Reservas ON Turnos.id_turno = Reservas.id_turno
 GROUP BY Turnos.id_turno
 ORDER BY Dia, HoraInicio;
 
-*/
-
-
-
-
 SELECT Alumnos.nombre AS Alumno, Turnos.dia AS Dia, Turnos.hora_inicio AS HoraInicio, Turnos.hora_fin AS HoraFin
 FROM Reservas
 
 JOIN Alumnos ON Reservas.id_alumno = Alumnos.id_alumno
 JOIN Turnos ON Reservas.id_turno = Turnos.id_turno
 ORDER BY Dia, HoraInicio;
+INSERT INTO Reservas (id_alumno, id_turno) VALUES (6, 5);
+
+-- Añade la nueva columna 'clases_disponibles' a la tabla Alumnos
+-- Le asigna el valor 4 por defecto a todas las filas que ya existen.
+ALTER TABLE Alumnos
+ADD COLUMN clases_disponibles INTEGER NOT NULL DEFAULT 4;
+
+
+CREATE TABLE Turnos_new (
+    id_turno INTEGER PRIMARY KEY AUTOINCREMENT,
+    dia INTEGER NOT NULL CHECK(dia BETWEEN 1 AND 5),
+    hora_inicio TEXT NOT NULL CHECK(hora_inicio IN ('12:00', '17:00', '19:00')),
+    hora_fin TEXT NOT NULL CHECK(hora_fin IN ('14:00', '19:00', '21:00')),
+    max_alumnos INTEGER NOT NULL DEFAULT 6
+);
+
+
+DELETE FROM Turnos_new
+WHERE id_turno BETWEEN 11 AND 20;
+
+
+INSERT INTO Turnos_new (dia, hora_inicio, hora_fin) VALUES (1, '19:00', '21:00'); 
+INSERT INTO Turnos_new (dia, hora_inicio, hora_fin) VALUES (2, '19:00', '21:00'); 
+INSERT INTO Turnos_new (dia, hora_inicio, hora_fin) VALUES (3, '19:00', '21:00'); 
+INSERT INTO Turnos_new (dia, hora_inicio, hora_fin) VALUES (4, '19:00', '21:00'); 
+INSERT INTO Turnos_new (dia, hora_inicio, hora_fin) VALUES (5, '19:00', '21:00'); 
+
+ALTER TABLE Turnos_new RENAME TO Turnos;
+
+*/
+
+
+
+-- 1. Crea la nueva tabla de reservas sin la restricción UNIQUE y con la nueva columna.
+CREATE TABLE Reservas_new (
+    id_reserva INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_alumno INTEGER NOT NULL,
+    id_turno INTEGER NOT NULL,
+    fecha_clase DATE NOT NULL,
+    FOREIGN KEY (id_alumno) REFERENCES Alumnos(id_alumno) ON DELETE CASCADE,
+    FOREIGN KEY (id_turno) REFERENCES Turnos(id_turno) ON DELETE CASCADE
+);
+

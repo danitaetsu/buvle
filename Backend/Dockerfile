@@ -1,5 +1,5 @@
 # Usa una imagen base con Node.js
-FROM node:16
+FROM node:20
 
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /Backend
