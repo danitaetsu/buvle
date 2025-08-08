@@ -20,7 +20,7 @@ export default function Register({ setIsRegistering }) {
     }
 
     try {
-      const response = await fetch('http://192.168.0.14:3000/register', {
+      const response = await fetch('https://buvle.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre, email, password, confirmPassword }),
