@@ -32,7 +32,7 @@ app.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const result = await pool.query('SELECT * FROM "alumnos" WHERE email = $1 AND password = $2', [email, password]);
+        const result = await pool.query('SELECT * FROM alumnos WHERE email = $1 AND password = $2', [email, password]);
 
         if (result.rows.length > 0) {
             res.status(200).json({ success: true, nombre: result.rows[0].nombre });
@@ -58,13 +58,13 @@ app.post('/register', async (req, res) => {
     }
 
     try {
-        const checkEmail = await pool.query('SELECT * FROM "alumnos" WHERE email = $1', [email]);
+        const checkEmail = await pool.query('SELECT * FROM "" WHERE email = $1', [email]);
 
         if (checkEmail.rows.length > 0) {
             return res.status(400).json({ success: false, message: 'El correo ya está registrado' });
         }
 
-        await pool.query('INSERT INTO "alumnos" (nombre, email, password) VALUES ($1, $2, $3)', [nombre, email, password]);
+        await pool.query('INSERT INTO alumnos (nombre, email, password) VALUES ($1, $2, $3)', [nombre, email, password]);
 
         res.status(201).json({ success: true, message: 'Alumno registrado con éxito' });
     } catch (err) {
