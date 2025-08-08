@@ -14,7 +14,7 @@ export default function Login({ setIsLoggedIn, setNombre, setIsRegistering }) {
     }
 
     try {
-      const response = await fetch('https://buvle.onrender.com/login', {
+      const response = await fetch('https://buvle-backend.onrender.com/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
