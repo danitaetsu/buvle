@@ -9,25 +9,25 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
-// 🔐 Tu cadena de conexión (copiada desde Supabase)
+// Conexión a PostgreSQL usando variable de entorno
 const pool = new Pool({
-    connectionString: 'postgresql://postgres:Gatocampano9016&@db.fbjxakagvyzapxcmceiv.supabase.co:5432/postgres',
+    connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     }
 });
 
-// 👀 Prueba de conexión
+// Probar conexión
 pool.connect()
-    .then(() => console.log('Conectado a Supabase PostgreSQL correctamente'))
-    .catch(err => console.error('Error de conexión a la base de datos:', err));
+    .then(() => console.log('✅ Conectado a Supabase PostgreSQL correctamente'))
+    .catch(err => console.error('❌ Error de conexión a la base de datos:', err));
 
 // Endpoint raíz
 app.get('/', (req, res) => {
     res.send('API funcionando con PostgreSQL (Supabase)');
 });
 
-// 👤 LOGIN
+// LOGIN
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -45,7 +45,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// 👤 REGISTER
+// REGISTER
 app.post('/register', async (req, res) => {
     const { nombre, email, password, confirmPassword } = req.body;
 
