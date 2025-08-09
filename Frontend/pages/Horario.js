@@ -1,151 +1,146 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
+import "./Horario.css";
 
-const API_URL = "http://localhost:3000"; // cambia a tu dominio/render
-
-export default function Horario({ idAlumno }) {
-  const [horario, setHorario] = useState([]);
+const Horario = ({ idAlumno }) => {
+  const [turnos, setTurnos] = useState([]);
   const [reservas, setReservas] = useState([]);
-  const [semanas, setSemanas] = useState([]);
+  const [mesActual, setMesActual] = useState(new Date());
 
-  // Generar semanas dinámicamente (ejemplo Agosto)
-  const generarSemanas = () => {
-    const inicioMes = new Date(2025, 7, 8); // Agosto 2025 empieza desde 8
-    let semanasTemp = [];
-    for (let i = 0; i < 5; i++) {
-      let inicio = new Date(inicioMes);
-      inicio.setDate(inicio.getDate() + i * 7);
-      let fin = new Date(inicio);
-      fin.setDate(fin.getDate() + 6);
-      semanasTemp.push({
-        inicio: inicio.toLocaleDateString("es-ES"),
-        fin: fin.toLocaleDateString("es-ES"),
-      });
-    }
-    setSemanas(semanasTemp);
-  };
-
-  // Cargar horarios desde la base de datos (turnos)
-  const cargarHorario = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/turnos`); // Este endpoint debe devolver todos los turnos
-      setHorario(res.data.turnos);
-    } catch (err) {
-      console.error("Error cargando horario:", err.message);
-    }
-  };
-
-  // Cargar reservas del alumno
-  const cargarReservas = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/mis-reservas/${idAlumno}`);
-      setReservas(res.data.reservas);
-    } catch (err) {
-      console.error("Error cargando reservas:", err.message);
-    }
-  };
-
-  // Reservar o cancelar
-  const manejarClick = async (idTurno, fecha) => {
-    const reservaExistente = reservas.find(
-      (r) => r.id_turno === idTurno && r.fecha_clase === fecha
-    );
-
-    if (reservaExistente) {
-      if (window.confirm("¿Quieres cancelar esta reserva?")) {
-        await axios.delete(`${API_URL}/cancelar`, {
-          data: { id_reserva: reservaExistente.id_reserva, id_alumno: idAlumno },
-        });
-        await cargarReservas();
-      }
-    } else {
-      if (window.confirm("¿Quieres reservar este turno?")) {
-        await axios.post(`${API_URL}/reservar`, {
-          id_alumno: idAlumno,
-          id_turno: idTurno,
-          fecha_clase: fecha,
-        });
-        await cargarReservas();
-      }
-    }
-  };
+  const diasSemana = ["L", "M", "X", "J", "V"];
 
   useEffect(() => {
-    generarSemanas();
-    cargarHorario();
-    cargarReservas();
-  }, []);
+    obtenerTurnos();
+    obtenerReservas();
+  }, [mesActual]);
+
+  const obtenerTurnos = async () => {
+    try {
+      const res = await axios.get("http://localhost:3000/turnos");
+      setTurnos(res.data);
+    } catch (error) {
+      console.error("Error obteniendo turnos", error);
+    }
+  };
+
+  const obtenerReservas = async () => {
+    try {
+      const res = await axios.get("http://localhost:3000/reservas", {
+        params: { id_alumno: idAlumno }
+      });
+      setReservas(res.data);
+    } catch (error) {
+      console.error("Error obteniendo reservas", error);
+    }
+  };
+
+  const generarFechasMes = () => {
+    const fechas = [];
+    const año = mesActual.getFullYear();
+    const mes = mesActual.getMonth();
+    const primerDia = new Date(año, mes, 1);
+    const ultimoDia = new Date(año, mes + 1, 0);
+
+    let fecha = new Date(primerDia);
+    while (fecha <= ultimoDia) {
+      if (fecha.getDay() >= 1 && fecha.getDay() <= 5) {
+        fechas.push(new Date(fecha));
+      }
+      fecha.setDate(fecha.getDate() + 1);
+    }
+    return fechas;
+  };
+
+  const estaReservado = (fecha, idTurno) => {
+    return reservas.some(
+      (r) =>
+        r.id_turno === idTurno &&
+        new Date(r.fecha_clase).toDateString() === fecha.toDateString()
+    );
+  };
+
+  const manejarClick = async (fecha, idTurno) => {
+    const reservado = estaReservado(fecha, idTurno);
+
+    if (!reservado) {
+      if (window.confirm("¿Quieres reservar este turno?")) {
+        try {
+          await axios.post("http://localhost:3000/reservar", {
+            id_alumno: idAlumno,
+            id_turno: idTurno,
+            fecha_clase: fecha.toISOString().split("T")[0],
+          });
+          obtenerReservas();
+        } catch (error) {
+          console.error("Error reservando", error);
+        }
+      }
+    } else {
+      if (window.confirm("¿Quieres cancelar esta reserva?")) {
+        try {
+          await axios.post("http://localhost:3000/cancelar", {
+            id_alumno: idAlumno,
+            id_turno: idTurno,
+            fecha_clase: fecha.toISOString().split("T")[0],
+          });
+          obtenerReservas();
+        } catch (error) {
+          console.error("Error cancelando", error);
+        }
+      }
+    }
+  };
+
+  const fechasMes = generarFechasMes();
+  const horasUnicas = [...new Set(turnos.map(t => t.hora_inicio))];
 
   return (
-    <div>
-      {semanas.map((semana, i) => (
-        <div key={i} className="semana">
-          <h3>
-            Semana {i + 1} ({semana.inicio} - {semana.fin})
-          </h3>
-          <div className="tabla-horario">
-            <div className="header">
-              <div></div>
-              {["L", "M", "X", "J", "V"].map((dia, index) => (
-                <div key={index} className="dia">
-                  {dia}
-                </div>
+    <div className="horario-container">
+      <h2>
+        {mesActual.toLocaleString("es-ES", { month: "long", year: "numeric" })}
+      </h2>
+      <div className="horario-scroll">
+        <table className="horario-tabla">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              {fechasMes.map((fecha, idx) => (
+                <th key={idx}>
+                  {diasSemana[fecha.getDay() - 1]}<br />
+                  {fecha.getDate()}
+                </th>
               ))}
-            </div>
-            {horario.map((turno) => (
-              <div key={turno.id_turno} className="fila">
-                <div className="hora">
-                  {turno.hora_inicio} - {turno.hora_fin}
-                </div>
-                {[1, 2, 3, 4, 5].map((diaNum) => {
-                  const fecha = new Date(semana.inicio.split("/").reverse().join("-"));
-                  fecha.setDate(fecha.getDate() + (diaNum - 1));
-                  const fechaStr = fecha.toISOString().split("T")[0];
-
-                  const estaReservado = reservas.some(
-                    (r) =>
-                      r.id_turno === turno.id_turno &&
-                      r.fecha_clase === fechaStr
+            </tr>
+          </thead>
+          <tbody>
+            {horasUnicas.map((hora) => (
+              <tr key={hora}>
+                <td>{hora}</td>
+                {fechasMes.map((fecha, idx) => {
+                  const turno = turnos.find(
+                    (t) =>
+                      t.hora_inicio === hora &&
+                      t.dia === fecha.getDay()
                   );
-
                   return (
-                    <div
-                      key={diaNum}
-                      className={`celda ${estaReservado ? "reservado" : ""}`}
-                      onClick={() => manejarClick(turno.id_turno, fechaStr)}
-                    >
-                      {estaReservado ? "✅" : ""}
-                    </div>
+                    <td key={idx} className="celda">
+                      {turno ? (
+                        <input
+                          type="checkbox"
+                          checked={estaReservado(fecha, turno.id_turno)}
+                          onChange={() => manejarClick(fecha, turno.id_turno)}
+                        />
+                      ) : null}
+                    </td>
                   );
                 })}
-              </div>
+              </tr>
             ))}
-          </div>
-        </div>
-      ))}
-      <style jsx>{`
-        .tabla-horario {
-          display: grid;
-          grid-template-columns: 100px repeat(5, 1fr);
-          border: 1px solid #ccc;
-          margin-bottom: 20px;
-        }
-        .header, .fila {
-          display: contents;
-        }
-        .dia, .hora, .celda {
-          border: 1px solid #ccc;
-          padding: 10px;
-          text-align: center;
-        }
-        .reservado {
-          background-color: #90ee90;
-        }
-        .celda:hover {
-          cursor: pointer;
-          background-color: #e0e0e0;
-        }
-      `}</style>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
-}
+};
+
+export default Horario;
