@@ -1,139 +1,151 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 
-export default function Horario() {
-  const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-  const franjas = ['10:00 - 12:00', '12:00 - 14:00', '17:00 - 19:00', '19:00 - 21:00'];
-  const [seleccionado, setSeleccionado] = useState(null); // slot seleccionado
+const API_URL = "http://localhost:3000"; // cambia a tu dominio/render
 
-  const manejarSeleccion = (dia, franja) => {
-    const slotId = `${dia}-${franja}`;
-    if (seleccionado === slotId) {
-      setSeleccionado(null); // deseleccionar
-    } else if (!seleccionado) {
-      setSeleccionado(slotId); // seleccionar
+export default function Horario({ idAlumno }) {
+  const [horario, setHorario] = useState([]);
+  const [reservas, setReservas] = useState([]);
+  const [semanas, setSemanas] = useState([]);
+
+  // Generar semanas dinámicamente (ejemplo Agosto)
+  const generarSemanas = () => {
+    const inicioMes = new Date(2025, 7, 8); // Agosto 2025 empieza desde 8
+    let semanasTemp = [];
+    for (let i = 0; i < 5; i++) {
+      let inicio = new Date(inicioMes);
+      inicio.setDate(inicio.getDate() + i * 7);
+      let fin = new Date(inicio);
+      fin.setDate(fin.getDate() + 6);
+      semanasTemp.push({
+        inicio: inicio.toLocaleDateString("es-ES"),
+        fin: fin.toLocaleDateString("es-ES"),
+      });
+    }
+    setSemanas(semanasTemp);
+  };
+
+  // Cargar horarios desde la base de datos (turnos)
+  const cargarHorario = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/turnos`); // Este endpoint debe devolver todos los turnos
+      setHorario(res.data.turnos);
+    } catch (err) {
+      console.error("Error cargando horario:", err.message);
     }
   };
 
+  // Cargar reservas del alumno
+  const cargarReservas = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/mis-reservas/${idAlumno}`);
+      setReservas(res.data.reservas);
+    } catch (err) {
+      console.error("Error cargando reservas:", err.message);
+    }
+  };
+
+  // Reservar o cancelar
+  const manejarClick = async (idTurno, fecha) => {
+    const reservaExistente = reservas.find(
+      (r) => r.id_turno === idTurno && r.fecha_clase === fecha
+    );
+
+    if (reservaExistente) {
+      if (window.confirm("¿Quieres cancelar esta reserva?")) {
+        await axios.delete(`${API_URL}/cancelar`, {
+          data: { id_reserva: reservaExistente.id_reserva, id_alumno: idAlumno },
+        });
+        await cargarReservas();
+      }
+    } else {
+      if (window.confirm("¿Quieres reservar este turno?")) {
+        await axios.post(`${API_URL}/reservar`, {
+          id_alumno: idAlumno,
+          id_turno: idTurno,
+          fecha_clase: fecha,
+        });
+        await cargarReservas();
+      }
+    }
+  };
+
+  useEffect(() => {
+    generarSemanas();
+    cargarHorario();
+    cargarReservas();
+  }, []);
+
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Horario semanal</Text>
-      <Text style={styles.subtitulo}>Semana del 26 mayo al 1 junio</Text>
+    <div>
+      {semanas.map((semana, i) => (
+        <div key={i} className="semana">
+          <h3>
+            Semana {i + 1} ({semana.inicio} - {semana.fin})
+          </h3>
+          <div className="tabla-horario">
+            <div className="header">
+              <div></div>
+              {["L", "M", "X", "J", "V"].map((dia, index) => (
+                <div key={index} className="dia">
+                  {dia}
+                </div>
+              ))}
+            </div>
+            {horario.map((turno) => (
+              <div key={turno.id_turno} className="fila">
+                <div className="hora">
+                  {turno.hora_inicio} - {turno.hora_fin}
+                </div>
+                {[1, 2, 3, 4, 5].map((diaNum) => {
+                  const fecha = new Date(semana.inicio.split("/").reverse().join("-"));
+                  fecha.setDate(fecha.getDate() + (diaNum - 1));
+                  const fechaStr = fecha.toISOString().split("T")[0];
 
-      <View style={styles.tabla}>
-        {/* Cabecera */}
-        <View style={styles.fila}>
-          <View style={styles.celdaHora}></View>
-          {dias.map((dia) => (
-            <View key={dia} style={styles.celdaCabecera}>
-              <Text style={styles.textoCabecera}>{dia}</Text>
-            </View>
-          ))}
-        </View>
+                  const estaReservado = reservas.some(
+                    (r) =>
+                      r.id_turno === turno.id_turno &&
+                      r.fecha_clase === fechaStr
+                  );
 
-        {/* Filas de franjas */}
-        {franjas.map((franja) => (
-          <View key={franja} style={styles.fila}>
-            {/* Hora */}
-            <View style={styles.celdaHora}>
-              <Text style={styles.textoHora}>{franja}</Text>
-            </View>
-
-            {/* Celdas de selección */}
-            {dias.map((dia) => {
-              const slotId = `${dia}-${franja}`;
-              const activo = seleccionado === slotId;
-              const deshabilitado = seleccionado && !activo;
-
-              return (
-                <TouchableOpacity
-                  key={slotId}
-                  style={[
-                    styles.celda,
-                    activo && styles.celdaActiva,
-                    deshabilitado && styles.celdaDeshabilitada,
-                  ]}
-                  onPress={() => manejarSeleccion(dia, franja)}
-                  disabled={deshabilitado}
-                >
-                  <Text style={styles.textoCelda}>{activo ? '✅' : '⬜'}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+                  return (
+                    <div
+                      key={diaNum}
+                      className={`celda ${estaReservado ? "reservado" : ""}`}
+                      onClick={() => manejarClick(turno.id_turno, fechaStr)}
+                    >
+                      {estaReservado ? "✅" : ""}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <style jsx>{`
+        .tabla-horario {
+          display: grid;
+          grid-template-columns: 100px repeat(5, 1fr);
+          border: 1px solid #ccc;
+          margin-bottom: 20px;
+        }
+        .header, .fila {
+          display: contents;
+        }
+        .dia, .hora, .celda {
+          border: 1px solid #ccc;
+          padding: 10px;
+          text-align: center;
+        }
+        .reservado {
+          background-color: #90ee90;
+        }
+        .celda:hover {
+          cursor: pointer;
+          background-color: #e0e0e0;
+        }
+      `}</style>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f4f4f4',
-    paddingTop: 40,
-    paddingHorizontal: 10,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  subtitulo: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
-    fontWeight: '600',
-  },
-  tabla: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  fila: {
-    flexDirection: 'row',
-  },
-  celdaHora: {
-    width: 100,
-    backgroundColor: '#e0e0e0',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  textoHora: {
-    fontWeight: '600',
-  },
-  celdaCabecera: {
-    flex: 1,
-    backgroundColor: '#ddd',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    alignItems: 'center',
-  },
-  textoCabecera: {
-    fontWeight: 'bold',
-  },
-  celda: {
-    flex: 1,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  celdaActiva: {
-    backgroundColor: '#90ee90', // verde claro
-  },
-  celdaDeshabilitada: {
-    backgroundColor: '#d3d3d3',
-  },
-  textoCelda: {
-    fontSize: 14,
-  },
-});
