@@ -1,4 +1,3 @@
-// index.js
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -10,13 +9,11 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(cors());
 
-// Conexión a Supabase PostgreSQL (Transaction Pooler)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Probar conexión al arrancar
 (async () => {
   try {
     await pool.query("SELECT NOW()");
@@ -26,20 +23,6 @@ const pool = new Pool({
   }
 })();
 
-// ─────────── ENDPOINTS ───────────
-
-// Probar conexión
-app.get("/check-db", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");
-    res.json({ success: true, time: result.rows[0] });
-  } catch (err) {
-    console.error("Error comprobando conexión a DB:", err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Raíz
 app.get("/", (req, res) => {
   res.send("API funcionando con PostgreSQL (Supabase)");
 });
@@ -47,20 +30,17 @@ app.get("/", (req, res) => {
 // LOGIN
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-
   try {
     const result = await pool.query(
       "SELECT id_alumno, nombre, clases_disponibles FROM alumnos WHERE email = $1 AND password = $2",
       [email, password]
     );
-
     if (result.rows.length > 0) {
       res.status(200).json({ success: true, alumno: result.rows[0] });
     } else {
       res.status(401).json({ success: false, message: "Usuario o contraseña incorrectos" });
     }
   } catch (err) {
-    console.error("Error en login:", err.message);
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
@@ -68,7 +48,6 @@ app.post("/login", async (req, res) => {
 // REGISTER
 app.post("/register", async (req, res) => {
   const { nombre, email, password, confirmPassword } = req.body;
-
   if (!nombre || !email || !password || !confirmPassword) {
     return res.status(400).json({ success: false, message: "Todos los campos son obligatorios" });
   }
@@ -77,27 +56,23 @@ app.post("/register", async (req, res) => {
   }
 
   try {
-    const checkEmail = await pool.query(
-      "SELECT * FROM alumnos WHERE email = $1",
-      [email]
-    );
+    const checkEmail = await pool.query("SELECT * FROM alumnos WHERE email = $1", [email]);
     if (checkEmail.rows.length > 0) {
       return res.status(400).json({ success: false, message: "El correo ya está registrado" });
     }
 
     await pool.query(
       "INSERT INTO alumnos (nombre, email, password, clases_disponibles) VALUES ($1, $2, $3, $4)",
-      [nombre, email, password, 10] // Por defecto 10 clases
+      [nombre, email, password, 4] // Restauro a 4 clases
     );
 
     res.status(201).json({ success: true, message: "Alumno registrado con éxito" });
   } catch (err) {
-    console.error("Error en register:", err.message);
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
 
-// LISTAR TURNOS
+// TURNOS
 app.get("/turnos", async (req, res) => {
   try {
     const result = await pool.query(
@@ -105,57 +80,46 @@ app.get("/turnos", async (req, res) => {
     );
     res.json({ success: true, turnos: result.rows });
   } catch (err) {
-    console.error("Error listando turnos:", err.message);
     res.status(500).json({ success: false, message: "Error al obtener turnos" });
   }
 });
 
-// MIS RESERVAS (por alumno)
-app.get("/mis-reservas/:id_alumno", async (req, res) => {
-  const { id_alumno } = req.params;
+// NUEVO: RESERVAS POR RANGO PARA EL CALENDARIO
+app.get("/reservas-rango", async (req, res) => {
+  const { from, to } = req.query;
+  if (!from || !to) {
+    return res.status(400).json({ success: false, message: "from y to requeridos" });
+  }
+
   try {
     const result = await pool.query(
-      "SELECT * FROM reservas WHERE id_alumno = $1 ORDER BY fecha_clase",
-      [id_alumno]
+      `SELECT r.id_reserva, r.fecha_clase, r.id_turno, a.nombre, t.hora_inicio, t.hora_fin
+       FROM reservas r
+       JOIN alumnos a ON r.id_alumno = a.id_alumno
+       JOIN turnos t ON r.id_turno = t.id_turno
+       WHERE r.fecha_clase BETWEEN $1 AND $2
+       ORDER BY r.fecha_clase, t.hora_inicio`,
+      [from, to]
     );
-    res.json({ success: true, reservas: result.rows });
+
+    const events = result.rows.map(row => ({
+      id: row.id_reserva,
+      title: row.nombre,
+      start: `${row.fecha_clase}T${row.hora_inicio}:00`,
+      end: `${row.fecha_clase}T${row.hora_fin}:00`,
+      id_turno: row.id_turno
+    }));
+
+    res.json({ success: true, events });
   } catch (err) {
-    console.error("Error listando reservas:", err.message);
     res.status(500).json({ success: false, message: "Error al obtener reservas" });
   }
 });
 
-// ✅ NUEVO: RESERVAS DEL MES (con nombre de alumno)
-app.get("/reservas", async (req, res) => {
-  const { mes } = req.query; // 'YYYY-MM'
-  if (!mes || !/^\d{4}-\d{2}$/.test(mes)) {
-    return res.status(400).json({ success: false, message: "Parámetro 'mes' requerido en formato YYYY-MM" });
-  }
-
-  try {
-    const result = await pool.query(
-      `
-      SELECT r.id_reserva, r.fecha_clase, r.id_turno, a.nombre
-      FROM reservas r
-      JOIN alumnos a ON r.id_alumno = a.id_alumno
-      WHERE TO_CHAR(r.fecha_clase, 'YYYY-MM') = $1
-      ORDER BY r.fecha_clase, r.id_turno
-      `,
-      [mes]
-    );
-    res.json({ success: true, reservas: result.rows });
-  } catch (err) {
-    console.error("Error listando reservas del mes:", err.message);
-    res.status(500).json({ success: false, message: "Error al obtener reservas del mes" });
-  }
-});
-
-// CREAR RESERVA
+// RESERVAR
 app.post("/reservar", async (req, res) => {
   const { id_alumno, id_turno, fecha_clase } = req.body;
-
   try {
-    // Comprobar si el turno está lleno
     const count = await pool.query(
       "SELECT COUNT(*) FROM reservas WHERE id_turno = $1 AND fecha_clase = $2",
       [id_turno, fecha_clase]
@@ -168,62 +132,30 @@ app.post("/reservar", async (req, res) => {
       return res.status(400).json({ success: false, message: "Turno completo" });
     }
 
-    // Comprobar si el alumno tiene clases disponibles
     const alumno = await pool.query(
       "SELECT clases_disponibles FROM alumnos WHERE id_alumno = $1",
       [id_alumno]
     );
-    if (!alumno.rows.length) {
-      return res.status(400).json({ success: false, message: "Alumno no encontrado" });
-    }
     if (alumno.rows[0].clases_disponibles <= 0) {
       return res.status(400).json({ success: false, message: "No tienes clases disponibles" });
     }
 
-    // Crear reserva
     const insert = await pool.query(
       "INSERT INTO reservas (id_alumno, id_turno, fecha_clase) VALUES ($1, $2, $3) RETURNING id_reserva",
       [id_alumno, id_turno, fecha_clase]
     );
 
-    // Decrementar clases disponibles
     await pool.query(
       "UPDATE alumnos SET clases_disponibles = clases_disponibles - 1 WHERE id_alumno = $1",
       [id_alumno]
     );
 
-    res.json({ success: true, message: "Reserva creada correctamente", id_reserva: insert.rows[0].id_reserva });
+    res.json({ success: true, id_reserva: insert.rows[0].id_reserva, message: "Reserva creada" });
   } catch (err) {
-    console.error("Error creando reserva:", err.message);
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
 
-// CANCELAR RESERVA
-app.delete("/cancelar", async (req, res) => {
-  const { id_reserva, id_alumno } = req.body;
-
-  try {
-    // Eliminar reserva
-    await pool.query(
-      "DELETE FROM reservas WHERE id_reserva = $1 AND id_alumno = $2",
-      [id_reserva, id_alumno]
-    );
-
-    // Incrementar clases disponibles
-    await pool.query(
-      "UPDATE alumnos SET clases_disponibles = clases_disponibles + 1 WHERE id_alumno = $1",
-      [id_alumno]
-    );
-
-    res.json({ success: true, message: "Reserva cancelada correctamente" });
-  } catch (err) {
-    console.error("Error cancelando reserva:", err.message);
-    res.status(500).json({ success: false, message: "Error en el servidor" });
-  }
-});
-
-// ─────────── INICIAR SERVIDOR ───────────
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });

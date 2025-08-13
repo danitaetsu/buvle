@@ -1840,6 +1840,11 @@ bytes@3.1.2:
   resolved "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz"
   integrity sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==
 
+calendarize@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.npmjs.org/calendarize/-/calendarize-1.1.1.tgz"
+  integrity sha512-C2JyBAtNp2NG4DX4fA1EILggLt/5PlYzvQR0crHktoAPBc9TlIfdhzg7tWekCbe+pH6+9qoK+FhPbi+vYJJlqw==
+
 call-bind-apply-helpers@^1.0.1, call-bind-apply-helpers@^1.0.2:
   version "1.0.2"
   resolved "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz"
@@ -2106,6 +2111,11 @@ css-in-js-utils@^3.1.0:
   integrity sha512-fJAcud6B3rRu+KHYk+Bwf+WFL2MDCJJ1XG9x137tJQ0xYxor7XziQtuGFbWNdqrvF4Tk26O3H73nfVqXt/fW1A==
   dependencies:
     hyphenate-style-name "^1.0.3"
+
+dayjs@^1.11.13:
+  version "1.11.13"
+  resolved "https://registry.npmjs.org/dayjs/-/dayjs-1.11.13.tgz"
+  integrity sha512-oaMBel6gjolK862uaPQOVTA7q3TZhuSvuMQAAglQDOWYO9A91IrAOUJEyKVlqJlHE0vq5p5UXxzdPfMH/x6xNg==
 
 debug@^2.2.0:
   version "2.6.9"
@@ -3809,6 +3819,14 @@ react-is@^18.0.0:
   version "18.3.1"
   resolved "https://registry.npmjs.org/react-is/-/react-is-18.3.1.tgz"
   integrity sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==
+
+react-native-big-calendar@^4.18.5:
+  version "4.18.5"
+  resolved "https://registry.npmjs.org/react-native-big-calendar/-/react-native-big-calendar-4.18.5.tgz"
+  integrity sha512-aiaYFGlMr9SxEWXb5mITTLXPB8svSmmCkoJ9bm8OXaCi9j9uv837hRquR3E7c2XdcQT5gz1khqdlAeqklKNA5Q==
+  dependencies:
+    calendarize "^1.1.1"
+    dayjs "^1.11.13"
 
 react-native-edge-to-edge@1.6.0:
   version "1.6.0"
