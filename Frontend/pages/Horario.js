@@ -1,102 +1,107 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Alert, ActivityIndicator, Modal, Pressable, StyleSheet } from "react-native";
 import { Calendar } from "react-native-big-calendar";
 
-export default function Horario({ id_alumno = 1, baseUrl }) {
+export default function Horario({ id_alumno = 1 }) {
+  const baseUrl = "https://buvle-backend.onrender.com";
+
   const [events, setEvents] = useState([]);
   const [turnos, setTurnos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const today = new Date();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [plazasDia, setPlazasDia] = useState([]);
 
-  const getWeekRange = (date) => {
-    const start = new Date(date);
-    const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-    start.setDate(diff);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return [start, end];
-  };
+  const franjas = [
+    { hi: "12:00", hf: "14:00" },
+    { hi: "17:00", hf: "19:00" },
+    { hi: "19:00", hf: "21:00" }
+  ];
 
   const ymd = (d) => d.toISOString().split("T")[0];
 
-  const fetchTurnos = async () => {
-    const res = await fetch(`${baseUrl}/turnos`);
-    const json = await res.json();
-    return json.turnos || [];
-  };
-
-  const fetchReservas = async (start, end) => {
-    const res = await fetch(`${baseUrl}/reservas-rango?from=${ymd(start)}&to=${ymd(end)}`);
-    const json = await res.json();
-    return (json.events || []).map(e => ({
-      ...e,
-      start: new Date(e.start),
-      end: new Date(e.end)
-    }));
-  };
-
   const loadData = async (date) => {
     setLoading(true);
-    const [start, end] = getWeekRange(date);
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
     try {
-      const [t, e] = await Promise.all([fetchTurnos(), fetchReservas(start, end)]);
-      setTurnos(t);
-      setEvents(e);
+      const resTurnos = await fetch(`${baseUrl}/turnos`);
+      const jsonTurnos = await resTurnos.json();
+      setTurnos(jsonTurnos.turnos || []);
+
+      const resReservas = await fetch(
+        `${baseUrl}/reservas-rango?from=${ymd(monthStart)}&to=${ymd(monthEnd)}`
+      );
+      const jsonReservas = await resReservas.json();
+      setEvents(
+        (jsonReservas.events || []).map((e) => ({
+          ...e,
+          start: new Date(e.start),
+          end: new Date(e.end)
+        }))
+      );
     } catch (err) {
-      Alert.alert("Error", "No se pudieron cargar datos");
+      console.error(err);
+      Alert.alert("Error", "No se pudieron cargar los datos");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData(today);
+    loadData(new Date());
   }, []);
 
-  const getTurnoId = (date) => {
+  const openDayModal = async (date) => {
+    setSelectedDate(date);
     const dia = date.getDay() === 0 ? 7 : date.getDay();
-    const hora = date.toTimeString().slice(0,5);
-    const turno = turnos.find(t => t.dia === dia && t.hora_inicio === hora);
-    return turno ? turno.id_turno : null;
+    let plazas = [];
+
+    for (const fr of franjas) {
+      const turno = turnos.find(
+        (t) => t.dia === dia && t.hora_inicio === fr.hi && t.hora_fin === fr.hf
+      );
+      if (turno) {
+        const res = await fetch(
+          `${baseUrl}/reservas-rango?from=${ymd(date)}&to=${ymd(date)}`
+        );
+        const json = await res.json();
+        const reservasTurno = (json.events || []).filter(e => e.id_turno === turno.id_turno);
+        plazas.push({
+          ...turno,
+          ocupadas: reservasTurno.length
+        });
+      }
+    }
+
+    setPlazasDia(plazas);
+    setModalVisible(true);
   };
 
-  const onPressCell = (date) => {
-    const id_turno = getTurnoId(date);
-    if (!id_turno) return;
-
-    Alert.alert(
-      "Reserva",
-      `¿Deseas reservar para ${ymd(date)} a las ${date.toTimeString().slice(0,5)}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "OK",
-          onPress: async () => {
-            try {
-              const res = await fetch(`${baseUrl}/reservar`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  id_alumno,
-                  id_turno,
-                  fecha_clase: ymd(date)
-                })
-              });
-              const json = await res.json();
-              if (json.success) {
-                loadData(date);
-              } else {
-                Alert.alert("Error", json.message || "No se pudo reservar");
-              }
-            } catch {
-              Alert.alert("Error", "No se pudo conectar al servidor");
-            }
-          }
-        }
-      ]
-    );
+  const reservarTurno = async (id_turno) => {
+    try {
+      const res = await fetch(`${baseUrl}/reservar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_alumno,
+          id_turno,
+          fecha_clase: ymd(selectedDate)
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        Alert.alert("Éxito", "Reserva creada");
+        setModalVisible(false);
+        loadData(selectedDate);
+      } else {
+        Alert.alert("Error", json.message || "No se pudo reservar");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Fallo de conexión");
+    }
   };
 
   if (loading) {
@@ -105,17 +110,98 @@ export default function Horario({ id_alumno = 1, baseUrl }) {
 
   return (
     <View style={{ flex: 1 }}>
+      <Text style={{ textAlign: "center", fontWeight: "bold", fontSize: 18, marginVertical: 8 }}>
+        Horario mensual
+      </Text>
       <Calendar
         events={events}
         height={600}
-        mode="week"
+        mode="month"
         weekStartsOn={1}
-        minHour={12}
-        maxHour={21}
-        onPressCell={onPressCell}
+        onPressCell={openDayModal}
         eventCellStyle={{ backgroundColor: "#c8f7c5" }}
         locale="es"
       />
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Turnos para {selectedDate ? ymd(selectedDate) : ""}
+            </Text>
+            {plazasDia.length === 0 && (
+              <Text>No hay turnos disponibles este día</Text>
+            )}
+            {plazasDia.map((t) => (
+              <View key={t.id_turno} style={styles.turnoRow}>
+                <Text style={styles.turnoText}>
+                  {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/{t.max_alumnos} ocupadas)
+                </Text>
+                <Pressable
+                  style={[
+                    styles.botonReserva,
+                    t.ocupadas >= t.max_alumnos && { backgroundColor: "gray" }
+                  ]}
+                  disabled={t.ocupadas >= t.max_alumnos}
+                  onPress={() => reservarTurno(t.id_turno)}
+                >
+                  <Text style={styles.botonText}>Reservar</Text>
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              style={[styles.botonReserva, { backgroundColor: "red", marginTop: 10 }]}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.botonText}>Cerrar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)"
+  },
+  modalContent: {
+    width: "85%",
+    backgroundColor: "white",
+    borderRadius: 8,
+    padding: 20
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15
+  },
+  turnoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: 5
+  },
+  turnoText: {
+    fontSize: 16
+  },
+  botonReserva: {
+    backgroundColor: "green",
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 5
+  },
+  botonText: {
+    color: "white",
+    fontWeight: "bold"
+  }
+});
