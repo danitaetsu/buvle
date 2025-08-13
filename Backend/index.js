@@ -1,3 +1,4 @@
+// index.js
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -100,7 +101,7 @@ app.post("/register", async (req, res) => {
 app.get("/turnos", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id_turno, dia, hora_inicio, hora_fin, max_alumnos FROM turnos ORDER BY hora_inicio"
+      "SELECT id_turno, dia, hora_inicio, hora_fin, max_alumnos FROM turnos ORDER BY dia, hora_inicio"
     );
     res.json({ success: true, turnos: result.rows });
   } catch (err) {
@@ -109,18 +110,43 @@ app.get("/turnos", async (req, res) => {
   }
 });
 
-// MIS RESERVAS
+// MIS RESERVAS (por alumno)
 app.get("/mis-reservas/:id_alumno", async (req, res) => {
   const { id_alumno } = req.params;
   try {
     const result = await pool.query(
-      "SELECT * FROM reservas WHERE id_alumno = $1",
+      "SELECT * FROM reservas WHERE id_alumno = $1 ORDER BY fecha_clase",
       [id_alumno]
     );
     res.json({ success: true, reservas: result.rows });
   } catch (err) {
     console.error("Error listando reservas:", err.message);
     res.status(500).json({ success: false, message: "Error al obtener reservas" });
+  }
+});
+
+// ✅ NUEVO: RESERVAS DEL MES (con nombre de alumno)
+app.get("/reservas", async (req, res) => {
+  const { mes } = req.query; // 'YYYY-MM'
+  if (!mes || !/^\d{4}-\d{2}$/.test(mes)) {
+    return res.status(400).json({ success: false, message: "Parámetro 'mes' requerido en formato YYYY-MM" });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT r.id_reserva, r.fecha_clase, r.id_turno, a.nombre
+      FROM reservas r
+      JOIN alumnos a ON r.id_alumno = a.id_alumno
+      WHERE TO_CHAR(r.fecha_clase, 'YYYY-MM') = $1
+      ORDER BY r.fecha_clase, r.id_turno
+      `,
+      [mes]
+    );
+    res.json({ success: true, reservas: result.rows });
+  } catch (err) {
+    console.error("Error listando reservas del mes:", err.message);
+    res.status(500).json({ success: false, message: "Error al obtener reservas del mes" });
   }
 });
 
@@ -147,13 +173,16 @@ app.post("/reservar", async (req, res) => {
       "SELECT clases_disponibles FROM alumnos WHERE id_alumno = $1",
       [id_alumno]
     );
+    if (!alumno.rows.length) {
+      return res.status(400).json({ success: false, message: "Alumno no encontrado" });
+    }
     if (alumno.rows[0].clases_disponibles <= 0) {
       return res.status(400).json({ success: false, message: "No tienes clases disponibles" });
     }
 
     // Crear reserva
-    await pool.query(
-      "INSERT INTO reservas (id_alumno, id_turno, fecha_clase) VALUES ($1, $2, $3)",
+    const insert = await pool.query(
+      "INSERT INTO reservas (id_alumno, id_turno, fecha_clase) VALUES ($1, $2, $3) RETURNING id_reserva",
       [id_alumno, id_turno, fecha_clase]
     );
 
@@ -163,7 +192,7 @@ app.post("/reservar", async (req, res) => {
       [id_alumno]
     );
 
-    res.json({ success: true, message: "Reserva creada correctamente" });
+    res.json({ success: true, message: "Reserva creada correctamente", id_reserva: insert.rows[0].id_reserva });
   } catch (err) {
     console.error("Error creando reserva:", err.message);
     res.status(500).json({ success: false, message: "Error en el servidor" });
@@ -193,8 +222,6 @@ app.delete("/cancelar", async (req, res) => {
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
-
-
 
 // ─────────── INICIAR SERVIDOR ───────────
 app.listen(port, "0.0.0.0", () => {

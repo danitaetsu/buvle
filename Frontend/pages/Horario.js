@@ -1,68 +1,74 @@
-import React, { useEffect, useState } from 'react';
+// Horario.js
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator
 } from 'react-native';
 
-export default function Horario({ id_alumno = 1, nombreAlumno = 'Ana Garcia' }) {
+// Props:
+// - id_alumno: obligatorio (del login). Para pruebas puedes dejar 1.
+// - baseUrl: opcional; por defecto 'http://localhost:3000'
+export default function Horario({ id_alumno = 1, baseUrl = 'http://localhost:3000' }) {
   const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+  // Mantengo tu gráfica con 4 franjas. Ojo: en tu BD NO existe 10-12 -> esa franja quedará como "no reservable".
   const franjas = ['10:00 - 12:00', '12:00 - 14:00', '17:00 - 19:00', '19:00 - 21:00'];
 
   const [monthRef, setMonthRef] = useState(new Date());
-  const [turnos, setTurnos] = useState([]);
-  const [reservas, setReservas] = useState([]);
+  const [turnos, setTurnos] = useState([]);              // {id_turno,dia,hora_inicio,hora_fin,...}
+  const [reservas, setReservas] = useState([]);          // {id_reserva,fecha_clase,id_turno,nombre}
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);               // evita dobles taps al reservar
 
-  // 🔹 Nuevo: estado para selección local
-  const [seleccionadas, setSeleccionadas] = useState(new Set());
+  // Mapa rápido: clave `${dia}-${hora_inicio}-${hora_fin}` -> id_turno
+  const turnosLookup = useMemo(() => {
+    const m = new Map();
+    for (const t of turnos) {
+      m.set(`${t.dia}-${t.hora_inicio}-${t.hora_fin}`, t.id_turno);
+    }
+    return m;
+  }, [turnos]);
 
-  const toggleSeleccion = (fechaISO, franja) => {
-    const key = `${fechaISO}_${franja}`;
-    setSeleccionadas(prev => {
-      const nuevo = new Set(prev);
-      if (nuevo.has(key)) {
-        nuevo.delete(key);
-      } else {
-        nuevo.add(key);
-      }
-      return nuevo;
-    });
+  // Aux: pasar "Lunes..Viernes" a 1..5 como en BD
+  const jsDayToDBDia = (jsDate) => {
+    const d = jsDate.getDay(); // 0..6 (0=Domingo)
+    return d === 0 ? 7 : d;    // 1..7 (Lunes=1,…,Domingo=7)
   };
 
-  const BASE = 'http://localhost:3000';
+  // Aux: de franja "17:00 - 19:00" -> {hi:'17:00', hf:'19:00'}
+  const parseFranja = (franja) => {
+    const [hi, hf] = franja.split(' - ').map(s => s.trim());
+    return { hi, hf };
+  };
 
-  useEffect(() => {
-    const year = monthRef.getFullYear();
-    const month = String(monthRef.getMonth() + 1).padStart(2, '0');
+  // Devuelve id_turno o null si no existe en BD
+  const getTurnoId = (dayDate, franja) => {
+    const dbDia = jsDayToDBDia(dayDate);
+    if (dbDia < 1 || dbDia > 5) return null; // Solo lunes-viernes en tu BD
+    const { hi, hf } = parseFranja(franja);
+    const key = `${dbDia}-${hi}-${hf}`;
+    return turnosLookup.get(key) ?? null;
+  };
 
-    setLoading(true);
-    Promise.all([
-      fetch(`${BASE}/turnos`).then(r => r.ok ? r.json() : Promise.reject('turnos error')),
-      fetch(`${BASE}/reservas?mes=${year}-${month}`).then(r => r.ok ? r.json() : Promise.reject('reservas error'))
-    ])
-      .then(([turnosData, reservasData]) => {
-        setTurnos(turnosData);
-        setReservas(reservasData);
-      })
-      .catch(err => {
-        console.error('Error cargando datos:', err);
-        Alert.alert('Error', 'No se pudieron cargar turnos o reservas. Revisa el backend.');
-      })
-      .finally(() => setLoading(false));
-  }, [monthRef]);
+  const formatISO = (d) => {
+    // YYYY-MM-DD (ojo con husos; para calendario mensual nos vale)
+    const z = new Date(d);
+    const yyyy = z.getFullYear();
+    const mm = String(z.getMonth() + 1).padStart(2, '0');
+    const dd = String(z.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
 
+  // Construye semanas (solo lunes-viernes)
   const addDays = (d, n) => {
     const x = new Date(d);
     x.setDate(x.getDate() + n);
     return x;
   };
-  const formatISO = d => d.toISOString().slice(0, 10);
-
   const buildWeeksForMonth = (refDate) => {
     const firstDay = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
-    const lastDay = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0);
+    const lastDay  = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0);
 
     const start = new Date(firstDay);
-    const day = start.getDay();
+    const day = start.getDay(); // 0..6
     const diffToMonday = (day === 0 ? -6 : 1) - day;
     start.setDate(start.getDate() + diffToMonday);
     start.setHours(0,0,0,0);
@@ -73,7 +79,7 @@ export default function Horario({ id_alumno = 1, nombreAlumno = 'Ana Garcia' }) 
     while (cursor <= lastDay) {
       const week = [];
       for (let i = 0; i < 5; i++) {
-        week.push(addDays(cursor, i));
+        week.push(addDays(cursor, i)); // Lunes..Viernes
       }
       weeks.push(week);
       cursor = addDays(cursor, 7);
@@ -81,13 +87,90 @@ export default function Horario({ id_alumno = 1, nombreAlumno = 'Ana Garcia' }) 
     return weeks;
   };
 
-  const weeks = buildWeeksForMonth(monthRef);
+  const weeks = useMemo(() => buildWeeksForMonth(monthRef), [monthRef]);
 
-  if (loading) return (
-    <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-      <ActivityIndicator size="large" />
-    </View>
-  );
+  // Carga turnos + reservas del mes
+  const fetchData = async () => {
+    const year = monthRef.getFullYear();
+    const month = String(monthRef.getMonth() + 1).padStart(2, '0');
+    setLoading(true);
+    try {
+      const [tRes, rRes] = await Promise.all([
+        fetch(`${baseUrl}/turnos`),
+        fetch(`${baseUrl}/reservas?mes=${year}-${month}`)
+      ]);
+      if (!tRes.ok) throw new Error('Error turnos');
+      if (!rRes.ok) throw new Error('Error reservas');
+      const tJson = await tRes.json();
+      const rJson = await rRes.json();
+      setTurnos(tJson.turnos || []);            // backend devuelve { success, turnos }
+      setReservas(rJson.reservas || []);        // backend devuelve { success, reservas }
+    } catch (err) {
+      console.error('Error cargando datos:', err);
+      Alert.alert('Error', 'No se pudieron cargar turnos o reservas. Revisa el backend.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [monthRef]);
+
+  // Reservar en una celda
+  const onPressCell = (dayDate, franja) => {
+    const fechaISO = formatISO(dayDate);
+    const turnoId = getTurnoId(dayDate, franja);
+
+    if (!turnoId) {
+      Alert.alert('No disponible', 'Esta franja no es reservable según la configuración de turnos.');
+      return;
+    }
+
+    Alert.alert(
+      'Reserva',
+      `¿Deseas hacer una reserva para el ${fechaISO} en la franja ${franja}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'OK',
+          onPress: async () => {
+            if (busy) return;
+            setBusy(true);
+            try {
+              const resp = await fetch(`${baseUrl}/reservar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id_alumno,
+                  id_turno: turnoId,
+                  fecha_clase: fechaISO
+                })
+              });
+              const json = await resp.json();
+              if (!resp.ok || json.success === false) {
+                throw new Error(json.message || 'No se pudo crear la reserva');
+              }
+              // refrescar reservas del mes
+              await fetchData();
+              Alert.alert('OK', 'Reserva creada correctamente');
+            } catch (e) {
+              console.error(e);
+              Alert.alert('Error', e.message || 'No se pudo crear la reserva');
+            } finally {
+              setBusy(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -100,8 +183,7 @@ export default function Horario({ id_alumno = 1, nombreAlumno = 'Ana Garcia' }) 
 
       {weeks.map((week, wi) => {
         const firstDayOfMonth = new Date(monthRef.getFullYear(), monthRef.getMonth(), 1);
-        const lastDayOfMonth = new Date(monthRef.getFullYear(), monthRef.getMonth() + 1, 0);
-
+        const lastDayOfMonth  = new Date(monthRef.getFullYear(), monthRef.getMonth() + 1, 0);
         const diasEnMes = week.filter(d => d >= firstDayOfMonth && d <= lastDayOfMonth);
         const titulo = diasEnMes.length > 0
           ? `Semana del ${diasEnMes[0].getDate()} al ${diasEnMes[diasEnMes.length - 1].getDate()}`
@@ -132,32 +214,43 @@ export default function Horario({ id_alumno = 1, nombreAlumno = 'Ana Garcia' }) 
                   const fechaISO = formatISO(day);
                   const inMonth = day.getMonth() === monthRef.getMonth();
 
-                  const key = `${fechaISO}_${franja}`;
-                  const isSelected = seleccionadas.has(key);
+                  // ¿Qué turno corresponde a esta celda?
+                  const turnoId = getTurnoId(day, franja);
 
-                  const cellStyles = [styles.celda];
-                  if (isSelected) cellStyles.push(styles.celdaActiva);
-                  else if (!inMonth) cellStyles.push(styles.celdaFueraMes);
+                  // Reservas que caen en esta celda (misma fecha + mismo turno)
+                  const reservasCelda = reservas.filter(
+                    r => r.fecha_clase === fechaISO && r.id_turno === turnoId
+                  );
+
+                  const isDisabled = !inMonth || !turnoId; // fuera de mes o franja sin turno en BD
 
                   return (
                     <TouchableOpacity
                       key={fechaISO + franja}
-                      style={cellStyles}
-                      onPress={() => toggleSeleccion(fechaISO, franja)}
-                      activeOpacity={0.8}
+                      style={[
+                        styles.celda,
+                        !inMonth && styles.celdaFueraMes,
+                        isDisabled && styles.celdaDisabled
+                      ]}
+                      onPress={() => !isDisabled && onPressCell(day, franja)}
+                      activeOpacity={isDisabled ? 1 : 0.8}
                     >
                       <Text style={styles.diaNumero}>{day.getDate()}</Text>
 
-                      <View style={styles.checkboxContainer}>
-                        <View style={[
-                          styles.checkboxBox,
-                          isSelected && styles.checkboxBoxChecked
-                        ]}>
-                          {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      {/* Lista de nombres reservados en esta celda */}
+                      {reservasCelda.length > 0 ? (
+                        <View style={{ marginTop: 16, alignItems: 'center' }}>
+                          {reservasCelda.map(r => (
+                            <Text key={r.id_reserva} style={styles.textoCelda}>
+                              {r.nombre}
+                            </Text>
+                          ))}
                         </View>
-                      </View>
-
-                      <Text style={styles.textoCelda}>{isSelected ? nombreAlumno : ''}</Text>
+                      ) : (
+                        <Text style={[styles.textoCelda, { opacity: 0.3, marginTop: 16 }]}>
+                          {isDisabled ? '' : '— libre —'}
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -182,7 +275,7 @@ const styles = StyleSheet.create({
   tabla: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, overflow: 'hidden', marginVertical: 8 },
   fila: { flexDirection: 'row' },
   celdaHora: {
-    width: 100,
+    width: 110,
     backgroundColor: '#e0e0e0',
     padding: 10,
     borderWidth: 1,
@@ -213,32 +306,7 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   diaNumero: { position: 'absolute', left: 6, top: 4, fontSize: 11, color: '#333' },
-  textoCelda: { fontSize: 12, marginTop: 12, fontWeight: '600', textAlign: 'center' },
-  celdaActiva: { backgroundColor: '#c8f7c5' },
+  textoCelda: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
   celdaFueraMes: { backgroundColor: '#fafafa', opacity: 0.5 },
-  checkboxContainer: {
-    position: 'absolute',
-    right: 6,
-    top: 4,
-  },
-  checkboxBox: {
-    width: 22,
-    height: 22,
-    borderWidth: 1,
-    borderColor: '#666',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 3,
-  },
-  checkboxBoxChecked: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 14,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
+  celdaDisabled: { backgroundColor: '#f7f7f7' },
 });
