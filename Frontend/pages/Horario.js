@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, Alert, ActivityIndicator, Modal, Pressable, StyleSheet } from "react-native";
 import { Calendar } from "react-native-big-calendar";
 
-export default function Horario({ id_alumno = 1 }) {
+export default function Horario({ id_alumno}) {
   const baseUrl = "https://buvle-backend.onrender.com";
 
   const [events, setEvents] = useState([]);

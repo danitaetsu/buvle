@@ -1,31 +1,31 @@
-import React, { useState } from 'react';
-import { View } from 'react-native';
-import Login from './components/Login';
-import Register from './components/Register'; // Importamos el componente de registro
-import PersonalArea from './pages/PersonalArea';
+import React, { useState } from "react";
+import { View } from "react-native";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import PersonalArea from "./pages/PersonalArea";
+import Horario from "./Horario"; // 👈 ajusta la ruta si tu Horario.js está en otra carpeta
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Estado de login
-  const [nombre, setNombre] = useState(''); // Nombre del usuario logueado
-  const [isRegistering, setIsRegistering] = useState(false); // Estado para alternar entre Login y Register
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [idAlumno, setIdAlumno] = useState(null); // 👈 guardamos el id del usuario
+  const [isRegistering, setIsRegistering] = useState(false);
 
   return (
     <View style={{ flex: 1 }}>
       {isRegistering ? (
-        // Mostrar la pantalla de registro
         <Register setIsRegistering={setIsRegistering} />
       ) : isLoggedIn ? (
-        // Mostrar el área personal si el usuario está logueado
-        <PersonalArea nombre={nombre} setIsLoggedIn={setIsLoggedIn} />
+        // 👇 tras login mandamos directo a Horario con el id del alumno
+        <Horario id_alumno={idAlumno} />
       ) : (
-        // Mostrar el login por defecto
         <Login
           setIsLoggedIn={setIsLoggedIn}
           setNombre={setNombre}
-          setIsRegistering={setIsRegistering} // Pasamos la función para alternar a la pantalla de registro
+          setIdAlumno={setIdAlumno} // 👈 pasamos este setter al login
+          setIsRegistering={setIsRegistering}
         />
       )}
     </View>
   );
 }
-

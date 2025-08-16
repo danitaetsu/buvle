@@ -1,67 +1,61 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Button } from 'react-native';
+import React, { useState } from "react";
+import { View, Text, TextInput, Pressable, Alert, StyleSheet } from "react-native";
 
-export default function Login({ setIsLoggedIn, setNombre, setIsRegistering }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function Login({ setIsLoggedIn, setNombre, setIdAlumno, setIsRegistering }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const [errorMessage, setErrorMessage] = useState(''); // Estado para el mensaje de error
-  
+  const baseUrl = "https://buvle-backend.onrender.com";
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorMessage('Por favor ingrese email y contraseña');
-      return;
-    }
-
     try {
-      const response = await fetch('https://buvle-backend.onrender.com/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const res = await fetch(`${baseUrl}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      const json = await res.json();
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setErrorMessage(''); // Limpia el mensaje de error si el inicio de sesión es exitoso
-        setNombre(data.nombre);
+      if (json.success) {
+        setNombre(json.alumno.nombre);
+        setIdAlumno(json.alumno.id_alumno); // 👈 guardamos id del alumno
         setIsLoggedIn(true);
       } else {
-        const errorMessage = data?.message || 'Usuario no registrado o contraseña incorrecta';
-        setErrorMessage(errorMessage); // Muestra el mensaje de error en pantalla
+        Alert.alert("Error", json.message || "Credenciales inválidas");
       }
-    } catch (error) {
-      console.error('Error en la solicitud:', error);
-      setErrorMessage('Algo salió mal, intente nuevamente'); // Muestra un mensaje genérico en caso de fallo
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "No se pudo conectar al servidor");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Buvle App</Text>
-      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null} {/* Muestra el mensaje de error */}
+      <Text style={styles.title}>Iniciar Sesión</Text>
+
       <TextInput
         style={styles.input}
-        placeholder="Email"
-        keyboardType="email-address"
+        placeholder="Correo electrónico"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
       />
+
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
-        secureTextEntry
         value={password}
         onChangeText={setPassword}
+        secureTextEntry
       />
-      <Button title="Iniciar Sesión" onPress={handleLogin} />
 
-      <View style={styles.registerContainer}>
-        <Text>¿No tienes cuenta?</Text>
-        <Button title="Regístrate" onPress={() => setIsRegistering(true)} />
-      </View>
+      <Pressable style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>Entrar</Text>
+      </Pressable>
+
+      <Pressable onPress={() => setIsRegistering(true)}>
+        <Text style={styles.link}>¿No tienes cuenta? Regístrate</Text>
+      </Pressable>
     </View>
   );
 }
@@ -69,31 +63,35 @@ export default function Login({ setIsLoggedIn, setNombre, setIsRegistering }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: "bold",
     marginBottom: 20,
+    textAlign: "center",
   },
   input: {
-    width: '100%',
-    padding: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 10,
-    backgroundColor: '#fff',
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 15,
   },
-  error: {
-    color: 'red',
-    marginBottom: 10, // Espacio entre el error y el siguiente campo
-    textAlign: 'center',
+  button: {
+    backgroundColor: "green",
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
   },
-  registerContainer: {
-    marginTop: 20,
-    alignItems: 'center',
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  link: {
+    marginTop: 15,
+    color: "blue",
+    textAlign: "center",
   },
 });
