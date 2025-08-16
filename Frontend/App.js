@@ -3,7 +3,8 @@ import { View } from "react-native";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import PersonalArea from "./pages/PersonalArea";
-import Horario from "./Horario"; // 👈 ajusta la ruta si tu Horario.js está en otra carpeta
+import Horario from "./pages/Horario";
+
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
