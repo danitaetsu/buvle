@@ -1,15 +1,13 @@
-import React, { useState } from "react";
-import { View } from "react-native";
-import Login from "./components/Login";
-import Register from "./components/Register";
-import PersonalArea from "./pages/PersonalArea";
-import Horario from "./pages/Horario";
-
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import Login from './components/Login';
+import Register from './components/Register';
+import PersonalArea from './pages/PersonalArea';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [nombre, setNombre] = useState("");
-  const [idAlumno, setIdAlumno] = useState(null); // 👈 guardamos el id del usuario
+  const [nombre, setNombre] = useState('');
+  const [idAlumno, setIdAlumno] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
 
   return (
@@ -17,13 +15,16 @@ export default function App() {
       {isRegistering ? (
         <Register setIsRegistering={setIsRegistering} />
       ) : isLoggedIn ? (
-        // 👇 tras login mandamos directo a Horario con el id del alumno
-        <Horario id_alumno={idAlumno} />
+        <PersonalArea
+          nombre={nombre}
+          idAlumno={idAlumno}     // 👈 lo pasamos aquí
+          setIsLoggedIn={setIsLoggedIn}
+        />
       ) : (
         <Login
           setIsLoggedIn={setIsLoggedIn}
           setNombre={setNombre}
-          setIdAlumno={setIdAlumno} // 👈 pasamos este setter al login
+          setIdAlumno={setIdAlumno} // 👈 lo guardamos en login
           setIsRegistering={setIsRegistering}
         />
       )}

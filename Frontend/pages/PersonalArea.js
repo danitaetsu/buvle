@@ -6,15 +6,15 @@ import Proyectos from './Proyectos';
 import Clases from './Clases';
 import Pagos from './Pagos';
 
-export default function PersonalArea({ nombre, setIsLoggedIn }) {
+export default function PersonalArea({ nombre, idAlumno, setIsLoggedIn }) {
   const [currentPage, setCurrentPage] = useState('home');
 
   const renderPage = () => {
     switch (currentPage) {
-        case 'home': // Se asegura que "home" cargue la bienvenida
+      case 'home':
         return <Text style={styles.welcome}>Bienvenida/o, {nombre}!</Text>;
       case 'horario':
-        return <Horario />;
+        return <Horario id_alumno={idAlumno} />;   {/* 👈 pasamos id */}
       case 'proyectos':
         return <Proyectos />;
       case 'clases':
