@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, Alert, ActivityIndicator, Modal, Pressable, StyleSheet } from "react-native";
 import { Calendar } from "react-native-big-calendar";
 
-export default function Horario({ id_alumno}) {
+export default function Horario({ id_alumno }) {
   const baseUrl = "https://buvle-backend.onrender.com";
 
   const [events, setEvents] = useState([]);
@@ -13,67 +13,98 @@ export default function Horario({ id_alumno}) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [plazasDia, setPlazasDia] = useState([]);
 
+  // Franjas existentes en tu negocio
   const franjas = [
     { hi: "12:00", hf: "14:00" },
     { hi: "17:00", hf: "19:00" },
-    { hi: "19:00", hf: "21:00" }
+    { hi: "19:00", hf: "21:00" },
   ];
 
-  const ymd = (d) => d.toISOString().split("T")[0];
+  // YYYY-MM-DD sin mover a UTC (evita off-by-one)
+  const ymdLocal = (d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
 
-  const loadData = async (date) => {
+  const monthBounds = (date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { start, end };
+  };
+
+  const loadMonth = useCallback(async (date) => {
     setLoading(true);
-    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const { start, end } = monthBounds(date);
 
     try {
+      // 1) Turnos
       const resTurnos = await fetch(`${baseUrl}/turnos`);
       const jsonTurnos = await resTurnos.json();
       setTurnos(jsonTurnos.turnos || []);
 
+      // 2) Todas las reservas del rango (de todos los alumnos)
       const resReservas = await fetch(
-        `${baseUrl}/reservas-rango?from=${ymd(monthStart)}&to=${ymd(monthEnd)}`
+        `${baseUrl}/reservas-rango?from=${ymdLocal(start)}&to=${ymdLocal(end)}`
       );
       const jsonReservas = await resReservas.json();
-      setEvents(
-        (jsonReservas.events || []).map((e) => ({
-          ...e,
-          start: new Date(e.start),
-          end: new Date(e.end)
-        }))
-      );
+
+      const mapped = (jsonReservas.events || []).map((e) => ({
+        ...e,
+        start: new Date(e.start),
+        end: new Date(e.end),
+        title: e.title || "Reserva",
+        isMine: e.id_alumno === id_alumno, // 🔴 marcar si es del usuario
+      }));
+
+      setEvents(mapped);
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "No se pudieron cargar los datos");
+      Alert.alert("Error", "No se pudieron cargar los datos del calendario");
     } finally {
       setLoading(false);
     }
-  };
+  }, [id_alumno]);
 
   useEffect(() => {
-    loadData(new Date());
-  }, []);
+    loadMonth(new Date());
+  }, [loadMonth]);
+
+  // Al cambiar de mes en el calendario, recargamos
+  const handleChangeDate = ({ start }) => {
+    loadMonth(start);
+  };
 
   const openDayModal = async (date) => {
     setSelectedDate(date);
-    const dia = date.getDay() === 0 ? 7 : date.getDay();
-    let plazas = [];
+    const diaSemana = date.getDay() === 0 ? 7 : date.getDay(); // 1..7 (L..D)
+    const plazas = [];
 
-    for (const fr of franjas) {
-      const turno = turnos.find(
-        (t) => t.dia === dia && t.hora_inicio === fr.hi && t.hora_fin === fr.hf
+    try {
+      // Reutilizamos el backend para ese día concreto
+      const res = await fetch(
+        `${baseUrl}/reservas-rango?from=${ymdLocal(date)}&to=${ymdLocal(date)}`
       );
-      if (turno) {
-        const res = await fetch(
-          `${baseUrl}/reservas-rango?from=${ymd(date)}&to=${ymd(date)}`
+      const json = await res.json();
+
+      for (const fr of franjas) {
+        const turno = turnos.find(
+          (t) => t.dia === diaSemana && t.hora_inicio === fr.hi && t.hora_fin === fr.hf
         );
-        const json = await res.json();
-        const reservasTurno = (json.events || []).filter(e => e.id_turno === turno.id_turno);
-        plazas.push({
-          ...turno,
-          ocupadas: reservasTurno.length
-        });
+        if (turno) {
+          const reservasTurno = (json.events || []).filter(
+            (e) => e.id_turno === turno.id_turno
+          );
+          plazas.push({
+            ...turno,
+            ocupadas: reservasTurno.length,
+          });
+        }
       }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "No se pudieron cargar las plazas del día");
     }
 
     setPlazasDia(plazas);
@@ -88,14 +119,15 @@ export default function Horario({ id_alumno}) {
         body: JSON.stringify({
           id_alumno,
           id_turno,
-          fecha_clase: ymd(selectedDate)
-        })
+          fecha_clase: ymdLocal(selectedDate),
+        }),
       });
       const json = await res.json();
       if (json.success) {
         Alert.alert("Éxito", "Reserva creada");
         setModalVisible(false);
-        loadData(selectedDate);
+        // Recargar el mes del día seleccionado
+        loadMonth(selectedDate);
       } else {
         Alert.alert("Error", json.message || "No se pudo reservar");
       }
@@ -113,30 +145,35 @@ export default function Horario({ id_alumno}) {
       <Text style={{ textAlign: "center", fontWeight: "bold", fontSize: 18, marginVertical: 8 }}>
         Horario mensual
       </Text>
+
       <Calendar
         events={events}
         height={600}
         mode="month"
         weekStartsOn={1}
-        onPressCell={openDayModal}
-        eventCellStyle={{ backgroundColor: "#c8f7c5" }}
         locale="es"
+        onPressCell={openDayModal}
+        onChangeDate={handleChangeDate}
+        // 🔴 rojo para mis reservas, 🟢 verde suave para las de otros
+        eventCellStyle={(event) => ({
+          backgroundColor: event.isMine ? "#ff4d4f" : "#c8f7c5",
+        })}
       />
 
       <Modal
         visible={modalVisible}
-        transparent={true}
+        transparent
         animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              Turnos para {selectedDate ? ymd(selectedDate) : ""}
+              Turnos para {selectedDate ? ymdLocal(selectedDate) : ""}
             </Text>
-            {plazasDia.length === 0 && (
-              <Text>No hay turnos disponibles este día</Text>
-            )}
+
+            {plazasDia.length === 0 && <Text>No hay turnos disponibles este día</Text>}
+
             {plazasDia.map((t) => (
               <View key={t.id_turno} style={styles.turnoRow}>
                 <Text style={styles.turnoText}>
@@ -145,7 +182,7 @@ export default function Horario({ id_alumno}) {
                 <Pressable
                   style={[
                     styles.botonReserva,
-                    t.ocupadas >= t.max_alumnos && { backgroundColor: "gray" }
+                    t.ocupadas >= t.max_alumnos && { backgroundColor: "gray" },
                   ]}
                   disabled={t.ocupadas >= t.max_alumnos}
                   onPress={() => reservarTurno(t.id_turno)}
@@ -154,6 +191,7 @@ export default function Horario({ id_alumno}) {
                 </Pressable>
               </View>
             ))}
+
             <Pressable
               style={[styles.botonReserva, { backgroundColor: "red", marginTop: 10 }]}
               onPress={() => setModalVisible(false)}
@@ -172,36 +210,36 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)"
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
     width: "85%",
     backgroundColor: "white",
     borderRadius: 8,
-    padding: 20
+    padding: 20,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 15
+    marginBottom: 15,
   },
   turnoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginVertical: 5
+    marginVertical: 5,
   },
   turnoText: {
-    fontSize: 16
+    fontSize: 16,
   },
   botonReserva: {
     backgroundColor: "green",
     paddingVertical: 5,
     paddingHorizontal: 12,
-    borderRadius: 5
+    borderRadius: 5,
   },
   botonText: {
     color: "white",
-    fontWeight: "bold"
-  }
+    fontWeight: "bold",
+  },
 });

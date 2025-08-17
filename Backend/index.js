@@ -11,7 +11,7 @@ app.use(cors());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 (async () => {
@@ -63,7 +63,7 @@ app.post("/register", async (req, res) => {
 
     await pool.query(
       "INSERT INTO alumnos (nombre, email, password, clases_disponibles) VALUES ($1, $2, $3, $4)",
-      [nombre, email, password, 4] // Restauro a 4 clases
+      [nombre, email, password, 4]
     );
 
     res.status(201).json({ success: true, message: "Alumno registrado con éxito" });
@@ -84,7 +84,7 @@ app.get("/turnos", async (req, res) => {
   }
 });
 
-// NUEVO: RESERVAS POR RANGO PARA EL CALENDARIO
+// RESERVAS POR RANGO (para el calendario) – incluye id_alumno
 app.get("/reservas-rango", async (req, res) => {
   const { from, to } = req.query;
   if (!from || !to) {
@@ -93,7 +93,8 @@ app.get("/reservas-rango", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT r.id_reserva, r.fecha_clase, r.id_turno, a.nombre, t.hora_inicio, t.hora_fin
+      `SELECT r.id_reserva, r.fecha_clase, r.id_turno, r.id_alumno,
+              a.nombre, t.hora_inicio, t.hora_fin
        FROM reservas r
        JOIN alumnos a ON r.id_alumno = a.id_alumno
        JOIN turnos t ON r.id_turno = t.id_turno
@@ -104,10 +105,11 @@ app.get("/reservas-rango", async (req, res) => {
 
     const events = result.rows.map(row => ({
       id: row.id_reserva,
-      title: row.nombre,
+      title: row.nombre,                 // nombre del alumno que reservó
       start: `${row.fecha_clase}T${row.hora_inicio}:00`,
       end: `${row.fecha_clase}T${row.hora_fin}:00`,
-      id_turno: row.id_turno
+      id_turno: row.id_turno,
+      id_alumno: row.id_alumno,         // 👈 importante para el cliente
     }));
 
     res.json({ success: true, events });
