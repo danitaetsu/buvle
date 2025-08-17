@@ -84,7 +84,7 @@ app.get("/turnos", async (req, res) => {
   }
 });
 
-// 🔧 RESERVAS POR RANGO (incluye id_alumno para distinguir “mis” reservas)
+// RESERVAS POR RANGO
 app.get("/reservas-rango", async (req, res) => {
   const { from, to } = req.query;
   if (!from || !to) {
@@ -106,14 +106,15 @@ app.get("/reservas-rango", async (req, res) => {
     const events = result.rows.map(row => ({
       id: row.id_reserva,
       title: row.nombre,
-      start: `${row.fecha_clase}T${row.hora_inicio}:00`,
-      end: `${row.fecha_clase}T${row.hora_fin}:00`,
+      start: `${row.fecha_clase.toISOString().split("T")[0]}T${row.hora_inicio}:00`,
+      end: `${row.fecha_clase.toISOString().split("T")[0]}T${row.hora_fin}:00`,
       id_turno: row.id_turno,
-      id_alumno: row.id_alumno   // 👈 esencial
+      id_alumno: row.id_alumno
     }));
 
     res.json({ success: true, events });
   } catch (err) {
+    console.error("❌ Error en /reservas-rango:", err);
     res.status(500).json({ success: false, message: "Error al obtener reservas" });
   }
 });

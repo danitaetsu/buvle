@@ -19,7 +19,6 @@ export default function Horario({ id_alumno }) {
     { hi: "19:00", hf: "21:00" }
   ];
 
-  // YYYY-MM-DD sin UTC (evita desfases)
   const ymdLocal = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -46,17 +45,20 @@ export default function Horario({ id_alumno }) {
       );
       const jsonReservas = await resReservas.json();
 
-      const mapped = (jsonReservas.events || []).map((e) => ({
-        ...e,
-        start: new Date(e.start),
-        end: new Date(e.end),
-        title: e.title || "Reserva",
-        isMine: e.id_alumno === id_alumno   // 🔴 aquí distinguimos mis reservas
-      }));
+      const mapped = (jsonReservas.events || []).map((e) => {
+        const isMine = String(e.id_alumno) === String(id_alumno);
+        return {
+          ...e,
+          start: new Date(e.start),
+          end: new Date(e.end),
+          title: e.title || "Reserva",
+          isMine
+        };
+      });
 
       setEvents(mapped);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Error en loadData:", err);
       Alert.alert("Error", "No se pudieron cargar los datos");
     } finally {
       setLoading(false);
@@ -67,7 +69,6 @@ export default function Horario({ id_alumno }) {
     loadData(new Date());
   }, [loadData]);
 
-  // Cuando se cambia de mes en el calendario
   const onChangeDate = ({ start }) => {
     loadData(start);
   };
@@ -96,7 +97,7 @@ export default function Horario({ id_alumno }) {
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error("❌ Error en openDayModal:", err);
       Alert.alert("Error", "No se pudieron cargar las plazas del día");
     }
 
@@ -124,6 +125,7 @@ export default function Horario({ id_alumno }) {
         Alert.alert("Error", json.message || "No se pudo reservar");
       }
     } catch (err) {
+      console.error("❌ Error en reservarTurno:", err);
       Alert.alert("Error", "Fallo de conexión");
     }
   };
@@ -146,9 +148,8 @@ export default function Horario({ id_alumno }) {
         locale="es"
         onPressCell={openDayModal}
         onChangeDate={onChangeDate}
-        // 🔴 rojo = mis reservas, 🟢 verde = reservas de otros
         eventCellStyle={(event) => ({
-          backgroundColor: event.isMine ? "#ff4d4f" : "#c8f7c5"
+          backgroundColor: event.isMine ? "red" : "#c8f7c5"
         })}
       />
 
