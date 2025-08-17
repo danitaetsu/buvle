@@ -159,6 +159,38 @@ app.post("/reservar", async (req, res) => {
   }
 });
 
+// CANCELAR RESERVA
+app.post("/cancelar", async (req, res) => {
+  const { id_alumno, id_turno, fecha_clase } = req.body;
+
+  try {
+    // Buscar si existe la reserva
+    const reserva = await pool.query(
+      "SELECT id_reserva FROM reservas WHERE id_alumno = $1 AND id_turno = $2 AND fecha_clase = $3",
+      [id_alumno, id_turno, fecha_clase]
+    );
+
+    if (reserva.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "No se encontró la reserva" });
+    }
+
+    // Borrar la reserva
+    await pool.query("DELETE FROM reservas WHERE id_reserva = $1", [reserva.rows[0].id_reserva]);
+
+    // Devolver una clase al alumno
+    await pool.query(
+      "UPDATE alumnos SET clases_disponibles = clases_disponibles + 1 WHERE id_alumno = $1",
+      [id_alumno]
+    );
+
+    res.json({ success: true, message: "Reserva cancelada correctamente" });
+  } catch (err) {
+    console.error("❌ Error en /cancelar:", err);
+    res.status(500).json({ success: false, message: "Error en el servidor" });
+  }
+});
+
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });

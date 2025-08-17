@@ -118,7 +118,7 @@ export default function Horario({ id_alumno }) {
       });
       const json = await res.json();
       if (json.success) {
-        Alert.alert("Éxito", "Reserva creada");
+        Alert.alert("Éxito", "Reserva creada con éxito");
         setModalVisible(false);
         loadData(selectedDate);
       } else {
@@ -126,6 +126,31 @@ export default function Horario({ id_alumno }) {
       }
     } catch (err) {
       console.error("❌ Error en reservarTurno:", err);
+      Alert.alert("Error", "Fallo de conexión");
+    }
+  };
+
+  const cancelarTurno = async (id_turno) => {
+    try {
+      const res = await fetch(`${baseUrl}/cancelar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_alumno,
+          id_turno,
+          fecha_clase: ymdLocal(selectedDate)
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        Alert.alert("Éxito", "Reserva cancelada correctamente");
+        setModalVisible(false);
+        loadData(selectedDate);
+      } else {
+        Alert.alert("Error", json.message || "No se pudo cancelar");
+      }
+    } catch (err) {
+      console.error("❌ Error en cancelarTurno:", err);
       Alert.alert("Error", "Fallo de conexión");
     }
   };
@@ -167,23 +192,42 @@ export default function Horario({ id_alumno }) {
 
             {plazasDia.length === 0 && <Text>No hay turnos disponibles este día</Text>}
 
-            {plazasDia.map((t) => (
-              <View key={t.id_turno} style={styles.turnoRow}>
-                <Text style={styles.turnoText}>
-                  {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/{t.max_alumnos} ocupadas)
-                </Text>
-                <Pressable
-                  style={[
-                    styles.botonReserva,
-                    t.ocupadas >= t.max_alumnos && { backgroundColor: "gray" }
-                  ]}
-                  disabled={t.ocupadas >= t.max_alumnos}
-                  onPress={() => reservarTurno(t.id_turno)}
-                >
-                  <Text style={styles.botonText}>Reservar</Text>
-                </Pressable>
-              </View>
-            ))}
+            {plazasDia.map((t) => {
+              const tengoReserva = events.some(
+                e =>
+                  e.id_turno === t.id_turno &&
+                  e.start.toDateString() === selectedDate.toDateString() &&
+                  e.isMine
+              );
+
+              return (
+                <View key={t.id_turno} style={styles.turnoRow}>
+                  <Text style={styles.turnoText}>
+                    {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/{t.max_alumnos} ocupadas)
+                  </Text>
+
+                  {tengoReserva ? (
+                    <Pressable
+                      style={[styles.botonReserva, { backgroundColor: "orange" }]}
+                      onPress={() => cancelarTurno(t.id_turno)}
+                    >
+                      <Text style={styles.botonText}>Cancelar</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[
+                        styles.botonReserva,
+                        t.ocupadas >= t.max_alumnos && { backgroundColor: "gray" }
+                      ]}
+                      disabled={t.ocupadas >= t.max_alumnos}
+                      onPress={() => reservarTurno(t.id_turno)}
+                    >
+                      <Text style={styles.botonText}>Reservar</Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
 
             <Pressable
               style={[styles.botonReserva, { backgroundColor: "red", marginTop: 10 }]}
