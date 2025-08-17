@@ -11,7 +11,7 @@ app.use(cors());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false }
 });
 
 (async () => {
@@ -84,7 +84,7 @@ app.get("/turnos", async (req, res) => {
   }
 });
 
-// RESERVAS POR RANGO (para el calendario) – incluye id_alumno
+// 🔧 RESERVAS POR RANGO (incluye id_alumno para distinguir “mis” reservas)
 app.get("/reservas-rango", async (req, res) => {
   const { from, to } = req.query;
   if (!from || !to) {
@@ -105,11 +105,11 @@ app.get("/reservas-rango", async (req, res) => {
 
     const events = result.rows.map(row => ({
       id: row.id_reserva,
-      title: row.nombre,                 // nombre del alumno que reservó
+      title: row.nombre,
       start: `${row.fecha_clase}T${row.hora_inicio}:00`,
       end: `${row.fecha_clase}T${row.hora_fin}:00`,
       id_turno: row.id_turno,
-      id_alumno: row.id_alumno,         // 👈 importante para el cliente
+      id_alumno: row.id_alumno   // 👈 esencial
     }));
 
     res.json({ success: true, events });
