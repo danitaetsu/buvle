@@ -12,7 +12,7 @@ export default function PersonalArea({ nombre, idAlumno, setIsLoggedIn }) {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <Text style={styles.welcome}>Bienvenida/o, {nombre}!</Text>;
+        return <Text style={styles.welcome}>Bienvenid@, {nombre}!</Text>;
       case 'horario':
         return <Horario id_alumno={idAlumno} />;   {/* 👈 pasamos id */}
       case 'proyectos':

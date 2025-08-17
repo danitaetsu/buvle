@@ -173,10 +173,12 @@ export default function Horario({ id_alumno }) {
         locale="es"
         onPressCell={openDayModal}
         onChangeDate={onChangeDate}
+        onPressEvent={(event) => openDayModal(event.start)}   
         eventCellStyle={(event) => ({
-          backgroundColor: event.isMine ? "red" : "#c8f7c5"
+        backgroundColor: event.isMine ? "red" : "#c8f7c5"
         })}
-      />
+        />
+
 
       <Modal
         visible={modalVisible}
