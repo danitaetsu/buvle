@@ -19,6 +19,8 @@ export default function Horario({ id_alumno }) {
     { hi: "19:00", hf: "21:00" }
   ];
 
+  const ahora = new Date();
+
   const ymdLocal = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -46,13 +48,15 @@ export default function Horario({ id_alumno }) {
       const jsonReservas = await resReservas.json();
 
       const mapped = (jsonReservas.events || []).map((e) => {
+        const inicioTurno = new Date(e.start);
         const isMine = String(e.id_alumno) === String(id_alumno);
         return {
           ...e,
-          start: new Date(e.start),
+          start: inicioTurno,
           end: new Date(e.end),
           title: e.title || "Reserva",
-          isMine
+          isMine,
+          isPast: inicioTurno <= ahora   // 👈 ahora incluye hora exacta
         };
       });
 
@@ -175,10 +179,13 @@ export default function Horario({ id_alumno }) {
         onChangeDate={onChangeDate}
         onPressEvent={(event) => openDayModal(event.start)}   
         eventCellStyle={(event) => ({
-        backgroundColor: event.isMine ? "red" : "#c8f7c5"
+          backgroundColor: event.isPast
+            ? "lightgray"
+            : event.isMine
+            ? "red"
+            : "#c8f7c5"
         })}
-        />
-
+      />
 
       <Modal
         visible={modalVisible}
@@ -202,6 +209,9 @@ export default function Horario({ id_alumno }) {
                   e.isMine
               );
 
+              const turnoDate = new Date(`${ymdLocal(selectedDate)}T${t.hora_inicio}:00`);
+              const turnoPasado = turnoDate <= ahora;
+
               return (
                 <View key={t.id_turno} style={styles.turnoRow}>
                   <Text style={styles.turnoText}>
@@ -210,7 +220,11 @@ export default function Horario({ id_alumno }) {
 
                   {tengoReserva ? (
                     <Pressable
-                      style={[styles.botonReserva, { backgroundColor: "orange" }]}
+                      style={[
+                        styles.botonReserva,
+                        { backgroundColor: turnoPasado ? "gray" : "orange" }
+                      ]}
+                      disabled={turnoPasado}
                       onPress={() => cancelarTurno(t.id_turno)}
                     >
                       <Text style={styles.botonText}>Cancelar</Text>
@@ -219,9 +233,9 @@ export default function Horario({ id_alumno }) {
                     <Pressable
                       style={[
                         styles.botonReserva,
-                        t.ocupadas >= t.max_alumnos && { backgroundColor: "gray" }
+                        (t.ocupadas >= t.max_alumnos || turnoPasado) && { backgroundColor: "gray" }
                       ]}
-                      disabled={t.ocupadas >= t.max_alumnos}
+                      disabled={t.ocupadas >= t.max_alumnos || turnoPasado}
                       onPress={() => reservarTurno(t.id_turno)}
                     >
                       <Text style={styles.botonText}>Reservar</Text>
