@@ -13,13 +13,14 @@ export default function Horario({ id_alumno }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [plazasDia, setPlazasDia] = useState([]);
 
+  const [currentMonth, setCurrentMonth] = useState(new Date()); // 👉 mes que se está viendo
+  const today = new Date();
+
   const franjas = [
     { hi: "12:00", hf: "14:00" },
     { hi: "17:00", hf: "19:00" },
-    { hi: "19:00", hf: "21:00" }
+    { hi: "19:00", hf: "21:00" },
   ];
-
-  const ahora = new Date();
 
   const ymdLocal = (d) => {
     const yyyy = d.getFullYear();
@@ -30,54 +31,61 @@ export default function Horario({ id_alumno }) {
 
   const monthBounds = (date) => ({
     start: new Date(date.getFullYear(), date.getMonth(), 1),
-    end: new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    end: new Date(date.getFullYear(), date.getMonth() + 1, 0),
   });
 
-  const loadData = useCallback(async (date) => {
-    setLoading(true);
-    const { start, end } = monthBounds(date);
+  const loadData = useCallback(
+    async (date) => {
+      setLoading(true);
+      const { start, end } = monthBounds(date);
 
-    try {
-      const resTurnos = await fetch(`${baseUrl}/turnos`);
-      const jsonTurnos = await resTurnos.json();
-      setTurnos(jsonTurnos.turnos || []);
+      try {
+        const resTurnos = await fetch(`${baseUrl}/turnos`);
+        const jsonTurnos = await resTurnos.json();
+        setTurnos(jsonTurnos.turnos || []);
 
-      const resReservas = await fetch(
-        `${baseUrl}/reservas-rango?from=${ymdLocal(start)}&to=${ymdLocal(end)}`
-      );
-      const jsonReservas = await resReservas.json();
+        const resReservas = await fetch(
+          `${baseUrl}/reservas-rango?from=${ymdLocal(start)}&to=${ymdLocal(end)}`
+        );
+        const jsonReservas = await resReservas.json();
 
-      const mapped = (jsonReservas.events || []).map((e) => {
-        const inicioTurno = new Date(e.start);
-        const isMine = String(e.id_alumno) === String(id_alumno);
-        return {
-          ...e,
-          start: inicioTurno,
-          end: new Date(e.end),
-          title: e.title || "Reserva",
-          isMine,
-          isPast: inicioTurno <= ahora   // 👈 ahora incluye hora exacta
-        };
-      });
+        const mapped = (jsonReservas.events || []).map((e) => {
+          const inicioTurno = new Date(e.start);
+          const isMine = String(e.id_alumno) === String(id_alumno);
+          return {
+            ...e,
+            start: inicioTurno,
+            end: new Date(e.end),
+            title: e.title || "Reserva",
+            isMine,
+            isPast: inicioTurno <= today,
+          };
+        });
 
-      setEvents(mapped);
-    } catch (err) {
-      console.error("❌ Error en loadData:", err);
-      Alert.alert("Error", "No se pudieron cargar los datos");
-    } finally {
-      setLoading(false);
-    }
-  }, [id_alumno]);
+        setEvents(mapped);
+      } catch (err) {
+        console.error("❌ Error en loadData:", err);
+        Alert.alert("Error", "No se pudieron cargar los datos");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [id_alumno]
+  );
 
   useEffect(() => {
-    loadData(new Date());
-  }, [loadData]);
-
-  const onChangeDate = ({ start }) => {
-    loadData(start);
-  };
+    loadData(currentMonth);
+  }, [loadData, currentMonth]);
 
   const openDayModal = async (date) => {
+    // 👇 Si no es el mes actual, no dejo abrir
+    if (
+      date.getMonth() !== today.getMonth() ||
+      date.getFullYear() !== today.getFullYear()
+    ) {
+      return;
+    }
+
     setSelectedDate(date);
     const dia = date.getDay() === 0 ? 7 : date.getDay();
     const plazas = [];
@@ -93,10 +101,12 @@ export default function Horario({ id_alumno }) {
           (t) => t.dia === dia && t.hora_inicio === fr.hi && t.hora_fin === fr.hf
         );
         if (turno) {
-          const reservasTurno = (json.events || []).filter(e => e.id_turno === turno.id_turno);
+          const reservasTurno = (json.events || []).filter(
+            (e) => e.id_turno === turno.id_turno
+          );
           plazas.push({
             ...turno,
-            ocupadas: reservasTurno.length
+            ocupadas: reservasTurno.length,
           });
         }
       }
@@ -117,8 +127,8 @@ export default function Horario({ id_alumno }) {
         body: JSON.stringify({
           id_alumno,
           id_turno,
-          fecha_clase: ymdLocal(selectedDate)
-        })
+          fecha_clase: ymdLocal(selectedDate),
+        }),
       });
       const json = await res.json();
       if (json.success) {
@@ -142,8 +152,8 @@ export default function Horario({ id_alumno }) {
         body: JSON.stringify({
           id_alumno,
           id_turno,
-          fecha_clase: ymdLocal(selectedDate)
-        })
+          fecha_clase: ymdLocal(selectedDate),
+        }),
       });
       const json = await res.json();
       if (json.success) {
@@ -165,9 +175,35 @@ export default function Horario({ id_alumno }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <Text style={{ textAlign: "center", fontWeight: "bold", fontSize: 18, marginVertical: 8 }}>
-        Horario mensual
-      </Text>
+      {/* Encabezado con flechas */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() =>
+            setCurrentMonth(
+              new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+            )
+          }
+        >
+          <Text style={styles.arrow}>◀</Text>
+        </Pressable>
+
+        <Text style={styles.monthTitle}>
+          {currentMonth.toLocaleDateString("es-ES", {
+            month: "long",
+            year: "numeric",
+          })}
+        </Text>
+
+        <Pressable
+          onPress={() =>
+            setCurrentMonth(
+              new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+            )
+          }
+        >
+          <Text style={styles.arrow}>▶</Text>
+        </Pressable>
+      </View>
 
       <Calendar
         events={events}
@@ -176,17 +212,20 @@ export default function Horario({ id_alumno }) {
         weekStartsOn={1}
         locale="es"
         onPressCell={openDayModal}
-        onChangeDate={onChangeDate}
-        onPressEvent={(event) => openDayModal(event.start)}   
         eventCellStyle={(event) => ({
-          backgroundColor: event.isPast
-            ? "lightgray"
-            : event.isMine
-            ? "red"
-            : "#c8f7c5"
+          backgroundColor:
+            currentMonth.getMonth() !== today.getMonth() ||
+            currentMonth.getFullYear() !== today.getFullYear()
+              ? "lightgray" // 👈 Mes distinto → todo gris
+              : event.isPast
+              ? "lightgray"
+              : event.isMine
+              ? "red"
+              : "#c8f7c5",
         })}
       />
 
+      {/* Modal reservas */}
       <Modal
         visible={modalVisible}
         transparent
@@ -199,30 +238,35 @@ export default function Horario({ id_alumno }) {
               Turnos para {selectedDate ? ymdLocal(selectedDate) : ""}
             </Text>
 
-            {plazasDia.length === 0 && <Text>No hay turnos disponibles este día</Text>}
+            {plazasDia.length === 0 && (
+              <Text>No hay turnos disponibles este día</Text>
+            )}
 
             {plazasDia.map((t) => {
               const tengoReserva = events.some(
-                e =>
+                (e) =>
                   e.id_turno === t.id_turno &&
                   e.start.toDateString() === selectedDate.toDateString() &&
                   e.isMine
               );
 
-              const turnoDate = new Date(`${ymdLocal(selectedDate)}T${t.hora_inicio}:00`);
-              const turnoPasado = turnoDate <= ahora;
+              const turnoDate = new Date(
+                `${ymdLocal(selectedDate)}T${t.hora_inicio}:00`
+              );
+              const turnoPasado = turnoDate <= today;
 
               return (
                 <View key={t.id_turno} style={styles.turnoRow}>
                   <Text style={styles.turnoText}>
-                    {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/{t.max_alumnos} ocupadas)
+                    {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/
+                    {t.max_alumnos} ocupadas)
                   </Text>
 
                   {tengoReserva ? (
                     <Pressable
                       style={[
                         styles.botonReserva,
-                        { backgroundColor: turnoPasado ? "gray" : "orange" }
+                        { backgroundColor: turnoPasado ? "gray" : "orange" },
                       ]}
                       disabled={turnoPasado}
                       onPress={() => cancelarTurno(t.id_turno)}
@@ -233,7 +277,9 @@ export default function Horario({ id_alumno }) {
                     <Pressable
                       style={[
                         styles.botonReserva,
-                        (t.ocupadas >= t.max_alumnos || turnoPasado) && { backgroundColor: "gray" }
+                        (t.ocupadas >= t.max_alumnos || turnoPasado) && {
+                          backgroundColor: "gray",
+                        },
                       ]}
                       disabled={t.ocupadas >= t.max_alumnos || turnoPasado}
                       onPress={() => reservarTurno(t.id_turno)}
@@ -246,7 +292,10 @@ export default function Horario({ id_alumno }) {
             })}
 
             <Pressable
-              style={[styles.botonReserva, { backgroundColor: "red", marginTop: 10 }]}
+              style={[
+                styles.botonReserva,
+                { backgroundColor: "red", marginTop: 10 },
+              ]}
               onPress={() => setModalVisible(false)}
             >
               <Text style={styles.botonText}>Cerrar</Text>
@@ -259,40 +308,45 @@ export default function Horario({ id_alumno }) {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginBottom: 10,
+  },
+  monthTitle: { fontSize: 18, fontWeight: "bold", textTransform: "capitalize" },
+  arrow: { fontSize: 24, color: "#333" },
+
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)"
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
     width: "85%",
     backgroundColor: "white",
     borderRadius: 8,
-    padding: 20
+    padding: 20,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 15
+    marginBottom: 15,
   },
   turnoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginVertical: 5
+    marginVertical: 5,
   },
-  turnoText: {
-    fontSize: 16
-  },
+  turnoText: { fontSize: 16 },
   botonReserva: {
     backgroundColor: "green",
     paddingVertical: 5,
     paddingHorizontal: 12,
-    borderRadius: 5
+    borderRadius: 5,
   },
-  botonText: {
-    color: "white",
-    fontWeight: "bold"
-  }
+  botonText: { color: "white", fontWeight: "bold" },
 });

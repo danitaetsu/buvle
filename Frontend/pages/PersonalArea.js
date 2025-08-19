@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View, Text, Button } from 'react-native';
 import Menu from '../components/Menu';
 import Horario from './Horario';
-import Proyectos from './Proyectos';
+import Plan from './Plan';
 import Clases from './Clases';
 import Pagos from './Pagos';
 
@@ -15,8 +15,8 @@ export default function PersonalArea({ nombre, idAlumno, setIsLoggedIn }) {
         return <Text style={styles.welcome}>Bienvenid@, {nombre}!</Text>;
       case 'horario':
         return <Horario id_alumno={idAlumno} />;   {/* 👈 pasamos id */}
-      case 'proyectos':
-        return <Proyectos />;
+      case 'plan':
+        return <Plan />;
       case 'clases':
         return <Clases id_alumno={idAlumno} />;
       case 'pagos':

@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, Alert, FlatList } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Alert, SectionList } from "react-native";
 
 export default function Clases({ id_alumno, cupoMensual = 4 }) {
   const baseUrl = "https://buvle-backend.onrender.com";
 
   const [loading, setLoading] = useState(true);
-  const [clasesPasadas, setClasesPasadas] = useState([]);
+  const [secciones, setSecciones] = useState([]);   // ← agrupado por mes
   const [clasesRestantes, setClasesRestantes] = useState(cupoMensual);
+
+  const ahora = new Date();
 
   const ymdLocal = (d) => {
     const yyyy = d.getFullYear();
@@ -15,49 +17,62 @@ export default function Clases({ id_alumno, cupoMensual = 4 }) {
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  const monthBounds = (date) => ({
-    start: new Date(date.getFullYear(), date.getMonth(), 1),
-    end: new Date(date.getFullYear(), date.getMonth() + 1, 0),
-  });
+  // Últimos 12 meses (incluyendo el actual)
+  const rangeStart = new Date(ahora.getFullYear(), ahora.getMonth() - 11, 1);
+  const rangeEnd   = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
 
   const loadData = useCallback(async () => {
-    const ahora = new Date(); // recálculo cada carga
     setLoading(true);
 
-    // Si no llega id_alumno, mostramos un mensaje y no colgamos el spinner
     if (!id_alumno) {
-      setClasesPasadas([]);
+      setSecciones([]);
       setClasesRestantes(cupoMensual);
       setLoading(false);
       return;
     }
 
-    const { start, end } = monthBounds(new Date());
-
     try {
       const res = await fetch(
-        `${baseUrl}/reservas-rango?from=${ymdLocal(start)}&to=${ymdLocal(end)}`
+        `${baseUrl}/reservas-rango?from=${ymdLocal(rangeStart)}&to=${ymdLocal(rangeEnd)}`
       );
       const json = await res.json();
 
-      // Mis reservas del mes
-      const miasMes = (json.events || []).filter(
-        (e) => String(e.id_alumno) === String(id_alumno)
-      );
+      // Reservas del usuario en el rango solicitado
+      const mias = (json.events || [])
+        .filter((e) => String(e.id_alumno) === String(id_alumno))
+        .map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
 
-      // Mapear fechas y clasificar pasadas
-      const mapped = miasMes.map((e) => {
-        const inicio = new Date(e.start);
-        const fin = new Date(e.end);
-        return { ...e, start: inicio, end: fin, isPast: inicio <= ahora };
-      });
+      // Contador de este mes (mismo criterio que tu versión anterior: TODAS las del mes)
+      const usadasEsteMes = mias.filter(
+        (e) =>
+          e.start.getFullYear() === ahora.getFullYear() &&
+          e.start.getMonth() === ahora.getMonth()
+      ).length;
+      setClasesRestantes(Math.max(0, cupoMensual - usadasEsteMes));
 
-      // Pasadas ordenadas (más recientes primero)
-      const pasadas = mapped
-        .filter((e) => e.isPast)
-        .sort((a, b) => b.start - a.start)
-        .map((e) => ({
+      // Sólo clases PASADAS para el historial
+      const pasadas = mias
+        .filter((e) => e.start <= ahora)
+        .sort((a, b) => b.start - a.start); // más recientes primero
+
+      // Agrupar por (año, mes) con clave numérica estable: YYYY-MM
+      const grupos = new Map();
+      for (const e of pasadas) {
+        const y = e.start.getFullYear();
+        const m = e.start.getMonth(); // 0..11
+        const key = `${y}-${String(m + 1).padStart(2, "0")}`;
+
+        const label = new Intl.DateTimeFormat("es-ES", {
+          month: "long",
+          year: "numeric",
+        }).format(new Date(y, m, 1));
+
+        if (!grupos.has(key)) grupos.set(key, { title: label, data: [] });
+
+        grupos.get(key).data.push({
           id: e.id,
+          start: e.start,
+          end: e.end,
           fechaLarga: e.start.toLocaleDateString("es-ES", {
             weekday: "long",
             day: "numeric",
@@ -70,17 +85,26 @@ export default function Clases({ id_alumno, cupoMensual = 4 }) {
             hour: "2-digit",
             minute: "2-digit",
           })}`,
+        });
+      }
+
+      // Ordenar meses: más reciente arriba
+      const sections = Array.from(grupos.entries())
+        .sort(([a], [b]) => (a < b ? 1 : -1)) // "2025-08" > "2025-07"
+        .map(([, section]) => ({
+          ...section,
+          // Dentro del mes, también descendente por fecha
+          data: section.data.sort((x, y) => y.start - x.start),
+          // Capitalizar el mes para estética
+          title:
+            section.title.charAt(0).toUpperCase() + section.title.slice(1),
         }));
 
-      setClasesPasadas(pasadas);
-
-      // Restantes (aprox) = cupoMensual - reservas del mes (vigentes o pasadas)
-      const usadasEsteMes = miasMes.length;
-      setClasesRestantes(Math.max(0, cupoMensual - usadasEsteMes));
+      setSecciones(sections);
     } catch (err) {
       console.error("❌ Error en Clases.js:", err);
       Alert.alert("Error", "No se pudieron cargar tus clases");
-      setClasesPasadas([]);
+      setSecciones([]);
       setClasesRestantes(cupoMensual);
     } finally {
       setLoading(false);
@@ -98,20 +122,30 @@ export default function Clases({ id_alumno, cupoMensual = 4 }) {
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Tus clases</Text>
-      <Text style={styles.disponibles}>Te quedan {clasesRestantes} clases este mes</Text>
 
-      <Text style={styles.subtitulo}>Clases pasadas (este mes)</Text>
+      {/* 🎯 Marcador de clases disponibles (impersonal y fancy) */}
+      <View style={styles.marcador}>
+        <Text style={styles.marcadorTitulo}>Clases disponibles</Text>
+        <Text style={[styles.marcadorNumero, clasesRestantes === 0 && { color: "#6366f1"  }]}>
+          {clasesRestantes}
+        </Text>
+      </View>
 
-      {clasesPasadas.length === 0 ? (
+      <Text style={styles.subtitulo}>Clases pasadas</Text>
+
+      {secciones.length === 0 ? (
         <Text style={styles.text}>
           {id_alumno
-            ? "Aún no tienes clases pasadas este mes"
+            ? "Aún no tienes clases pasadas"
             : "No se recibió tu identificador. Vuelve desde el login o tu área personal."}
         </Text>
       ) : (
-        <FlatList
-          data={clasesPasadas}
-          keyExtractor={(item) => item.id.toString()}
+        <SectionList
+          sections={secciones}
+          keyExtractor={(item) => `${item.id}-${item.start.toISOString()}`}
+          renderSectionHeader={({ section: { title } }) => (
+            <Text style={styles.mesHeader}>{title}</Text>
+          )}
           renderItem={({ item }) => (
             <View style={styles.claseItem}>
               <Text style={styles.fecha}>{item.fechaLarga}</Text>
@@ -126,10 +160,36 @@ export default function Clases({ id_alumno, cupoMensual = 4 }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  titulo: { fontSize: 22, fontWeight: "bold", marginBottom: 8, textAlign: "center" },
-  disponibles: { fontSize: 16, marginBottom: 16, textAlign: "center", color: "green" },
+  titulo: { fontSize: 22, fontWeight: "bold", marginBottom: 16, textAlign: "center" },
+
+  marcador: {
+    backgroundColor: "#f0f4ff",
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  marcadorTitulo: { fontSize: 16, color: "#333", marginBottom: 4 },
+  marcadorNumero: { fontSize: 40, fontWeight: "bold", color: "#6366f1" },
+
   subtitulo: { fontSize: 18, fontWeight: "bold", marginTop: 6, marginBottom: 8 },
   text: { fontSize: 16, textAlign: "center", marginTop: 16 },
+
+  mesHeader: {
+    fontSize: 17,
+    fontWeight: "600",
+    backgroundColor: "#f9f9f9",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginTop: 12,
+    borderRadius: 6,
+  },
+
   claseItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#eee" },
   fecha: { fontSize: 16, fontWeight: "600" },
   horario: { fontSize: 14, color: "#555" },

@@ -4,7 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function Horario() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>mis proyectos</Text>
+      <Text style={styles.text}>mi plan de clases</Text>
     </View>
   );
 }
