@@ -18,7 +18,7 @@ export default function PersonalArea({ nombre, idAlumno, setIsLoggedIn }) {
       case 'proyectos':
         return <Proyectos />;
       case 'clases':
-        return <Clases />;
+        return <Clases id_alumno={idAlumno} />;
       case 'pagos':
         return <Pagos />;
       default:
