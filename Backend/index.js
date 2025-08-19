@@ -191,6 +191,22 @@ app.post("/cancelar", async (req, res) => {
 });
 
 
+// REFILL manual o automático
+app.post("/refill", async (req, res) => {
+  const { cantidad } = req.body; // default 4
+  try {
+    const result = await pool.query(
+      "UPDATE alumnos SET clases_disponibles = clases_disponibles + $1 RETURNING id_alumno, nombre, clases_disponibles",
+      [cantidad || 4]
+    );
+    res.json({ success: true, updated: result.rows });
+  } catch (err) {
+    console.error("❌ Error en /refill:", err);
+    res.status(500).json({ success: false, message: "Error en el servidor" });
+  }
+});
+
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
