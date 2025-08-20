@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, Button } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 export default function Register({ setIsRegistering }) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [planClases, setPlanClases] = useState('4'); // por defecto 4 clases
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const handleRegister = async () => {
-    if (!nombre || !email || !password || !confirmPassword) {
+    if (!nombre || !email || !password || !confirmPassword || !planClases) {
       setErrorMessage('Todos los campos son obligatorios');
       return;
     }
@@ -23,7 +25,13 @@ export default function Register({ setIsRegistering }) {
       const response = await fetch('https://buvle-backend.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, email, password, confirmPassword }),
+        body: JSON.stringify({
+          nombre,
+          email,
+          password,
+          confirmPassword,
+          plan_clases: planClases
+        }),
       });
 
       const data = await response.json();
@@ -31,7 +39,7 @@ export default function Register({ setIsRegistering }) {
       if (response.ok) {
         setErrorMessage('');
         setSuccessMessage('Registro exitoso. ¡Ahora puedes iniciar sesión!');
-        setTimeout(() => setIsRegistering(false), 2000); // Volver al login
+        setTimeout(() => setIsRegistering(false), 2000); // volver al login
       } else {
         setErrorMessage(data.message || 'No se pudo completar el registro');
       }
@@ -44,8 +52,9 @@ export default function Register({ setIsRegistering }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Registro</Text>
-      {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
-      {successMessage && <Text style={styles.success}>{successMessage}</Text>}
+      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+      {successMessage ? <Text style={styles.success}>{successMessage}</Text> : null}
+
       <TextInput
         style={styles.input}
         placeholder="Nombre"
@@ -73,7 +82,20 @@ export default function Register({ setIsRegistering }) {
         value={confirmPassword}
         onChangeText={setConfirmPassword}
       />
+
+      {/* Selector de plan de clases */}
+      <Text style={styles.label}>Plan de clases</Text>
+      <Picker
+        selectedValue={planClases}
+        style={styles.input}
+        onValueChange={(itemValue) => setPlanClases(itemValue)}
+      >
+        <Picker.Item label="2 clases al mes" value="2" />
+        <Picker.Item label="4 clases al mes" value="4" />
+      </Picker>
+
       <Button title="Registrarse" onPress={handleRegister} />
+
       <View style={styles.backToLoginContainer}>
         <Text>¿Ya tienes cuenta?</Text>
         <Button title="Inicia sesión" onPress={() => setIsRegistering(false)} />
@@ -102,6 +124,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 10,
     backgroundColor: '#fff',
+  },
+  label: {
+    alignSelf: 'flex-start',
+    marginBottom: 5,
+    fontWeight: 'bold',
   },
   error: {
     color: 'red',
