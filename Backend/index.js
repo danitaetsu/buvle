@@ -207,8 +207,31 @@ app.post("/refill", async (req, res) => {
 });
 
 
+// 📌 Obtener datos de un alumno por id
+app.get("/alumno/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT id_alumno, nombre, clases_disponibles FROM Alumnos WHERE id_alumno = ?",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Alumno no encontrado" });
+    }
+
+    res.json({
+      success: true,
+      alumno: rows[0],
+    });
+  } catch (err) {
+    console.error("❌ Error en GET /alumno/:id:", err);
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
+  }
+});
+
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
-
-//solo introduzco cambio para estabilizar
