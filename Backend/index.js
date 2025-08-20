@@ -194,21 +194,22 @@ app.post("/cancelar", async (req, res) => {
   }
 });
 
-
-// REFILL manual o automático
+// REFILL mensual acumulativo basado en el plan_clases
 app.post("/refill", async (req, res) => {
-  const { cantidad } = req.body; // default 4
   try {
     const result = await pool.query(
-      "UPDATE alumnos SET clases_disponibles = clases_disponibles + $1 RETURNING id_alumno, nombre, clases_disponibles",
-      [cantidad || 4]
+      `UPDATE alumnos 
+       SET clases_disponibles = clases_disponibles + plan_clases
+       RETURNING id_alumno, nombre, clases_disponibles, plan_clases`
     );
-    res.json({ success: true, updated: result.rows });
+
+    res.json({ success: true, message: "Refill mensual aplicado (acumulativo)", updated: result.rows });
   } catch (err) {
     console.error("❌ Error en /refill:", err);
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
+
 
 
 // ✅ Obtener datos de un alumno por id (pg / PostgreSQL)
