@@ -205,26 +205,26 @@ export default function Horario({ id_alumno }) {
         </Pressable>
       </View>
 
-      <Calendar
-        events={events}
-        height={600}
-        mode="month"
-        weekStartsOn={1}
-        locale="es"
-        onPressCell={openDayModal}
-        eventCellStyle={(event) => ({
-          backgroundColor:
-            currentMonth.getMonth() !== today.getMonth() ||
-            currentMonth.getFullYear() !== today.getFullYear()
-              ? "lightgray" // 👈 Mes distinto → todo gris
-              : event.isPast
-              ? "lightgray"
-              : event.isMine
-              ? "red"
-              : "#c8f7c5",
-        })}
-      />
-
+     <Calendar
+  events={events}
+  height={600}
+  mode="month"
+  weekStartsOn={1}
+  locale="es"
+  onPressCell={openDayModal}
+  onPressEvent={(event) => openDayModal(event.start)}
+  eventCellStyle={(event) => ({
+    backgroundColor:
+      currentMonth.getMonth() !== today.getMonth() ||
+      currentMonth.getFullYear() !== today.getFullYear()
+        ? "lightgray"
+        : event.isPast
+        ? "lightgray"
+        : event.isMine
+        ? "red"
+        : "#c8f7c5",
+  })}
+/>
       {/* Modal reservas */}
       <Modal
         visible={modalVisible}
