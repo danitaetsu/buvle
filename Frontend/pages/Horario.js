@@ -77,8 +77,7 @@ export default function Horario({ id_alumno }) {
     loadData(currentMonth);
   }, [loadData, currentMonth]);
 
-  const openDayModal = async (date) => {
-    // 👇 Si no es el mes actual, no dejo abrir
+  const openDayModal = (date) => {
     if (
       date.getMonth() !== today.getMonth() ||
       date.getFullYear() !== today.getFullYear()
@@ -90,29 +89,22 @@ export default function Horario({ id_alumno }) {
     const dia = date.getDay() === 0 ? 7 : date.getDay();
     const plazas = [];
 
-    try {
-      const res = await fetch(
-        `${baseUrl}/reservas-rango?from=${ymdLocal(date)}&to=${ymdLocal(date)}`
+    for (const fr of franjas) {
+      const turno = turnos.find(
+        (t) => t.dia === dia && t.hora_inicio === fr.hi && t.hora_fin === fr.hf
       );
-      const json = await res.json();
-
-      for (const fr of franjas) {
-        const turno = turnos.find(
-          (t) => t.dia === dia && t.hora_inicio === fr.hi && t.hora_fin === fr.hf
+      if (turno) {
+        const reservasTurno = events.filter(
+          (e) =>
+            e.id_turno === turno.id_turno &&
+            e.start.toDateString() === date.toDateString()
         );
-        if (turno) {
-          const reservasTurno = (json.events || []).filter(
-            (e) => e.id_turno === turno.id_turno
-          );
-          plazas.push({
-            ...turno,
-            ocupadas: reservasTurno.length,
-          });
-        }
+        plazas.push({
+          ...turno,
+          ocupadas: reservasTurno.length,
+          alumnos: reservasTurno.map((r) => r.title), // 👈 guardo nombres
+        });
       }
-    } catch (err) {
-      console.error("❌ Error en openDayModal:", err);
-      Alert.alert("Error", "No se pudieron cargar las plazas del día");
     }
 
     setPlazasDia(plazas);
@@ -205,26 +197,27 @@ export default function Horario({ id_alumno }) {
         </Pressable>
       </View>
 
-     <Calendar
-  events={events}
-  height={600}
-  mode="month"
-  weekStartsOn={1}
-  locale="es"
-  onPressCell={openDayModal}
-  onPressEvent={(event) => openDayModal(event.start)}
-  eventCellStyle={(event) => ({
-    backgroundColor:
-      currentMonth.getMonth() !== today.getMonth() ||
-      currentMonth.getFullYear() !== today.getFullYear()
-        ? "lightgray"
-        : event.isPast
-        ? "lightgray"
-        : event.isMine
-        ? "red"
-        : "#c8f7c5",
-  })}
-/>
+      <Calendar
+        events={events}
+        height={600}
+        mode="month"
+        weekStartsOn={1}
+        locale="es"
+        onPressCell={openDayModal}
+        onPressEvent={(event) => openDayModal(event.start)}
+        eventCellStyle={(event) => ({
+          backgroundColor:
+            currentMonth.getMonth() !== today.getMonth() ||
+            currentMonth.getFullYear() !== today.getFullYear()
+              ? "lightgray"
+              : event.isPast
+              ? "lightgray"
+              : event.isMine
+              ? "red"
+              : "#c8f7c5",
+        })}
+      />
+
       {/* Modal reservas */}
       <Modal
         visible={modalVisible}
@@ -257,10 +250,18 @@ export default function Horario({ id_alumno }) {
 
               return (
                 <View key={t.id_turno} style={styles.turnoRow}>
-                  <Text style={styles.turnoText}>
-                    {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/
-                    {t.max_alumnos} ocupadas)
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.turnoText}>
+                      {t.hora_inicio} - {t.hora_fin} ({t.ocupadas}/
+                      {t.max_alumnos} ocupadas)
+                    </Text>
+
+                    {t.alumnos && t.alumnos.length > 0 && (
+                      <Text style={{ fontSize: 14, color: "#333", marginLeft: 5 }}>
+                        {t.alumnos.join(", ")}
+                      </Text>
+                    )}
+                  </View>
 
                   {tengoReserva ? (
                     <Pressable
