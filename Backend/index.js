@@ -301,6 +301,26 @@ app.post("/change-password", async (req, res) => {
   }
 });
 
+//ENDPOINT PARA PAYMENT
+app.post("/create-payment-intent", async (req, res) => {
+  const { amount } = req.body; // cantidad en centavos (ej: 10€ = 1000)
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "eur", // 👈 o la moneda que uses
+      automatic_payment_methods: { enabled: true },
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (err) {
+    console.error("❌ Error en Stripe:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
