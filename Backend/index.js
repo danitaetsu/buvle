@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { Pool } = require("pg");
+const { Resend } = require("resend");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -13,6 +14,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
+
+// inicializar resend con tu API KEY (añádela en Render → Environment)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 (async () => {
   try {
@@ -62,7 +66,7 @@ app.post("/register", async (req, res) => {
       return res.status(400).json({ success: false, message: "El correo ya está registrado" });
     }
 
-    const clasesIniciales = parseInt(plan_clases, 10); // 2 o 4 (y futuro: 1 para clase suelta)
+    const clasesIniciales = parseInt(plan_clases, 10);
 
     await pool.query(
       "INSERT INTO alumnos (nombre, email, password, clases_disponibles, plan_clases) VALUES ($1, $2, $3, $4, $5)",
@@ -72,6 +76,38 @@ app.post("/register", async (req, res) => {
     res.status(201).json({ success: true, message: "Alumno registrado con éxito" });
   } catch (err) {
     console.error("❌ Error en /register:", err);
+    res.status(500).json({ success: false, message: "Error en el servidor" });
+  }
+});
+
+// FORGOT PASSWORD
+app.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ success: false, message: "Email requerido" });
+
+  try {
+    const result = await pool.query("SELECT id_alumno, nombre FROM alumnos WHERE email = $1", [email]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "No existe usuario con ese correo" });
+    }
+
+    // generar contraseña temporal
+    const tempPassword = Math.random().toString(36).slice(-8);
+
+    // actualizar en BD
+    await pool.query("UPDATE alumnos SET password = $1 WHERE email = $2", [tempPassword, email]);
+
+    // enviar correo con Resend
+    await resend.emails.send({
+      from: "Academia <onboarding@resend.dev>", // puedes usar dominio verificado
+      to: email,
+      subject: "Recuperación de contraseña",
+      text: `Hola ${result.rows[0].nombre},\n\nTu nueva contraseña temporal es: ${tempPassword}\n\nPor favor cámbiala después de iniciar sesión.`,
+    });
+
+    res.json({ success: true, message: "Se ha enviado una nueva contraseña al correo" });
+  } catch (err) {
+    console.error("❌ Error en /forgot-password:", err);
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
@@ -168,7 +204,6 @@ app.post("/cancelar", async (req, res) => {
   const { id_alumno, id_turno, fecha_clase } = req.body;
 
   try {
-    // Buscar si existe la reserva
     const reserva = await pool.query(
       "SELECT id_reserva FROM reservas WHERE id_alumno = $1 AND id_turno = $2 AND fecha_clase = $3",
       [id_alumno, id_turno, fecha_clase]
@@ -178,10 +213,8 @@ app.post("/cancelar", async (req, res) => {
       return res.status(404).json({ success: false, message: "No se encontró la reserva" });
     }
 
-    // Borrar la reserva
     await pool.query("DELETE FROM reservas WHERE id_reserva = $1", [reserva.rows[0].id_reserva]);
 
-    // Devolver una clase al alumno
     await pool.query(
       "UPDATE alumnos SET clases_disponibles = clases_disponibles + 1 WHERE id_alumno = $1",
       [id_alumno]
@@ -194,7 +227,7 @@ app.post("/cancelar", async (req, res) => {
   }
 });
 
-// REFILL mensual acumulativo basado en el plan_clases
+// REFILL mensual
 app.post("/refill", async (req, res) => {
   try {
     const result = await pool.query(
@@ -210,9 +243,7 @@ app.post("/refill", async (req, res) => {
   }
 });
 
-
-
-// ✅ Obtener datos de un alumno por id (pg / PostgreSQL)
+// GET alumno
 app.get("/alumno/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -235,8 +266,6 @@ app.get("/alumno/:id", async (req, res) => {
     res.status(500).json({ success: false, message: "Error interno del servidor" });
   }
 });
-
-
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);

@@ -1,27 +1,27 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, StyleSheet } from "react-native";
 
-export default function Login({ setIsLoggedIn, setNombre, setIdAlumno, setIsRegistering, setIsRecovering }) {
+export default function Password({ setIsRecovering }) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
   const baseUrl = "https://buvle-backend.onrender.com";
 
-  const handleLogin = async () => {
+  const handleRecover = async () => {
+    if (!email) {
+      Alert.alert("Error", "Introduce tu correo");
+      return;
+    }
     try {
-      const res = await fetch(`${baseUrl}/login`, {
+      const res = await fetch(`${baseUrl}/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email }),
       });
       const json = await res.json();
-
       if (json.success) {
-        setNombre(json.alumno.nombre);
-        setIdAlumno(json.alumno.id_alumno);
-        setIsLoggedIn(true);
+        Alert.alert("Éxito", "Se ha enviado una nueva contraseña a tu correo");
+        setIsRecovering(false); // volver al login
       } else {
-        Alert.alert("Error", json.message || "Credenciales inválidas");
+        Alert.alert("Error", json.message || "No se pudo enviar la contraseña");
       }
     } catch (err) {
       console.error(err);
@@ -31,34 +31,22 @@ export default function Login({ setIsLoggedIn, setNombre, setIdAlumno, setIsRegi
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Iniciar Sesión</Text>
+      <Text style={styles.title}>Recuperar Contraseña</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Correo electrónico"
+        placeholder="Introduce tu correo"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <Pressable style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Entrar</Text>
+      <Pressable style={styles.button} onPress={handleRecover}>
+        <Text style={styles.buttonText}>Enviar</Text>
       </Pressable>
 
-      <Pressable onPress={() => setIsRegistering(true)}>
-        <Text style={styles.link}>¿No tienes cuenta? Regístrate</Text>
-      </Pressable>
-
-      <Pressable onPress={() => setIsRecovering(true)}>
-        <Text style={styles.link}>¿Has olvidado tu contraseña?</Text>
+      <Pressable onPress={() => setIsRecovering(false)}>
+        <Text style={styles.link}>Volver al inicio de sesión</Text>
       </Pressable>
     </View>
   );
