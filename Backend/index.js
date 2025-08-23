@@ -35,10 +35,13 @@ app.get("/", (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query(
-      "SELECT id_alumno, nombre, clases_disponibles FROM alumnos WHERE email = $1 AND password = $2",
-      [email, password]
-    );
+const result = await pool.query(
+  `SELECT id_alumno, nombre, clases_disponibles, plan_clases, tipo_pago, mes_matricula 
+   FROM alumnos 
+   WHERE email = $1 AND password = $2`,
+  [email, password]
+);
+
     if (result.rows.length > 0) {
       res.status(200).json({ success: true, alumno: result.rows[0] });
     } else {

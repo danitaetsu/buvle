@@ -1,7 +1,16 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, StyleSheet } from "react-native";
 
-export default function Login({ setIsLoggedIn, setNombre, setIdAlumno, setIsRegistering, setIsRecovering }) {
+export default function Login({ 
+  setIsLoggedIn, 
+  setNombre, 
+  setIdAlumno, 
+  setIsRegistering, 
+  setIsRecovering,
+  setTipoPago, 
+  setMesMatricula, 
+  setPlanClases 
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -17,8 +26,15 @@ export default function Login({ setIsLoggedIn, setNombre, setIdAlumno, setIsRegi
       const json = await res.json();
 
       if (json.success) {
+        // Guardar la info básica
         setNombre(json.alumno.nombre);
         setIdAlumno(json.alumno.id_alumno);
+
+        // Guardar nuevos campos
+        if (setTipoPago) setTipoPago(json.alumno.tipo_pago);
+        if (setMesMatricula) setMesMatricula(json.alumno.mes_matricula);
+        if (setPlanClases) setPlanClases(json.alumno.plan_clases);
+
         setIsLoggedIn(true);
       } else {
         Alert.alert("Error", json.message || "Credenciales inválidas");
