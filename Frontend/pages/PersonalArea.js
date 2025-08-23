@@ -5,6 +5,7 @@ import Horario from './Horario';
 import Plan from './Plan';
 import Clases from './Clases';
 import Pagos from './Pagos';
+import Ajustes from './Ajustes';   // 👈 importamos la nueva página
 
 export default function PersonalArea({ nombre, idAlumno, setIsLoggedIn }) {
   const [currentPage, setCurrentPage] = useState('home');
@@ -14,15 +15,17 @@ export default function PersonalArea({ nombre, idAlumno, setIsLoggedIn }) {
       case 'home':
         return <Text style={styles.welcome}>Bienvenid@, {nombre}!</Text>;
       case 'horario':
-        return <Horario id_alumno={idAlumno} />;   {/* 👈 pasamos id */}
+        return <Horario id_alumno={idAlumno} />;
       case 'plan':
         return <Plan />;
       case 'clases':
         return <Clases id_alumno={idAlumno} />;
       case 'pagos':
         return <Pagos />;
+      case 'ajustes':   // 👈 nueva opción
+        return <Ajustes idAlumno={idAlumno} />;
       default:
-        return <Text style={styles.welcome}>Bienvenida/o, {nombre}!</Text>;
+        return <Text style={styles.welcome}>Bienvenid@, {nombre}!</Text>;
     }
   };
 

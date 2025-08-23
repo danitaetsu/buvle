@@ -99,7 +99,7 @@ app.post("/forgot-password", async (req, res) => {
 
     // enviar correo con Resend
     await resend.emails.send({
-      from: "Academia <onboarding@resend.dev>", // puedes usar dominio verificado
+      from: "Buvle <onboarding@resend.dev>", // puedes usar dominio verificado
       to: email,
       subject: "Recuperación de contraseña",
       text: `Hola ${result.rows[0].nombre},\n\nTu nueva contraseña temporal es: ${tempPassword}\n\nPor favor cámbiala después de iniciar sesión.`,
@@ -264,6 +264,34 @@ app.get("/alumno/:id", async (req, res) => {
   } catch (err) {
     console.error("❌ Error en GET /alumno/:id:", err);
     res.status(500).json({ success: false, message: "Error interno del servidor" });
+  }
+});
+
+// CAMBIO DE CONTRASEÑA
+app.post("/change-password", async (req, res) => {
+  const { idAlumno, oldPassword, newPassword } = req.body;
+
+  if (!idAlumno || !oldPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: "Todos los campos son requeridos" });
+  }
+
+  try {
+    const result = await pool.query("SELECT password FROM alumnos WHERE id_alumno = $1", [idAlumno]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Alumno no encontrado" });
+    }
+
+    if (result.rows[0].password !== oldPassword) {
+      return res.status(400).json({ success: false, message: "La contraseña actual no es correcta" });
+    }
+
+    await pool.query("UPDATE alumnos SET password = $1 WHERE id_alumno = $2", [newPassword, idAlumno]);
+
+    res.json({ success: true, message: "Contraseña cambiada correctamente" });
+  } catch (err) {
+    console.error("❌ Error en /change-password:", err);
+    res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
 
