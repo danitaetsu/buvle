@@ -7,6 +7,9 @@ const { Resend } = require("resend");
 const app = express();
 const port = process.env.PORT || 3000;
 
+const Stripe = require("stripe");
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
 app.use(bodyParser.json());
 app.use(cors());
 
@@ -308,7 +311,7 @@ app.post("/create-payment-intent", async (req, res) => {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: "eur", // 👈 o la moneda que uses
+      currency: "eur", // o "usd" según lo que uses
       automatic_payment_methods: { enabled: true },
     });
 
@@ -320,6 +323,7 @@ app.post("/create-payment-intent", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
