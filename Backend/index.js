@@ -51,9 +51,9 @@ app.post("/login", async (req, res) => {
 
 // REGISTER
 app.post("/register", async (req, res) => {
-  const { nombre, email, password, confirmPassword, plan_clases } = req.body;
+  const { nombre, email, password, confirmPassword, plan_clases, tipo_pago, mes_matricula } = req.body;
 
-  if (!nombre || !email || !password || !confirmPassword || !plan_clases) {
+  if (!nombre || !email || !password || !confirmPassword || !plan_clases || !tipo_pago || mes_matricula === undefined) {
     return res.status(400).json({ success: false, message: "Todos los campos son obligatorios" });
   }
   if (password !== confirmPassword) {
@@ -69,8 +69,10 @@ app.post("/register", async (req, res) => {
     const clasesIniciales = parseInt(plan_clases, 10);
 
     await pool.query(
-      "INSERT INTO alumnos (nombre, email, password, clases_disponibles, plan_clases) VALUES ($1, $2, $3, $4, $5)",
-      [nombre, email, password, clasesIniciales, plan_clases]
+      `INSERT INTO alumnos 
+        (nombre, email, password, clases_disponibles, plan_clases, tipo_pago, mes_matricula) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [nombre, email, password, clasesIniciales, plan_clases, tipo_pago, mes_matricula]
     );
 
     res.status(201).json({ success: true, message: "Alumno registrado con éxito" });
@@ -79,6 +81,7 @@ app.post("/register", async (req, res) => {
     res.status(500).json({ success: false, message: "Error en el servidor" });
   }
 });
+
 
 // FORGOT PASSWORD
 app.post("/forgot-password", async (req, res) => {

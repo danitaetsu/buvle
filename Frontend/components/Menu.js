@@ -6,7 +6,7 @@ export default function Menu({ setCurrentPage }) {
     <View style={styles.menu}>
       <Button title="Home" onPress={() => setCurrentPage('home')} />
       <Button title="Horario" onPress={() => setCurrentPage('horario')} />
-      <Button title="Plan" onPress={() => setCurrentPage('plan')} />
+      <Button title="Formato" onPress={() => setCurrentPage('formato')} />
       <Button title="Clases" onPress={() => setCurrentPage('clases')} />
       <Button title="Pagos" onPress={() => setCurrentPage('pagos')} />
       <Button title="Ajustes" onPress={() => setCurrentPage('ajustes')} /> {/* 👈 nuevo */}

@@ -8,11 +8,13 @@ export default function Register({ setIsRegistering }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [planClases, setPlanClases] = useState('4'); // por defecto 4 clases
+  const [tipoPago, setTipoPago] = useState('1'); // 1 = Pago en App por defecto
+  const [mesMatricula, setMesMatricula] = useState('0'); // 0 = Clases sueltas
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const handleRegister = async () => {
-    if (!nombre || !email || !password || !confirmPassword || !planClases) {
+    if (!nombre || !email || !password || !confirmPassword || !planClases || !tipoPago || mesMatricula === undefined) {
       setErrorMessage('Todos los campos son obligatorios');
       return;
     }
@@ -30,7 +32,9 @@ export default function Register({ setIsRegistering }) {
           email,
           password,
           confirmPassword,
-          plan_clases: planClases
+          plan_clases: planClases,
+          tipo_pago: tipoPago,
+          mes_matricula: mesMatricula
         }),
       });
 
@@ -83,15 +87,49 @@ export default function Register({ setIsRegistering }) {
         onChangeText={setConfirmPassword}
       />
 
-      {/* Selector de plan de clases */}
-      <Text style={styles.label}>Plan de clases</Text>
+      {/* Selector de formato de clases */}
+      <Text style={styles.label}>Formato de Clases</Text>
       <Picker
         selectedValue={planClases}
         style={styles.input}
         onValueChange={(itemValue) => setPlanClases(itemValue)}
       >
+        <Picker.Item label="Clases sueltas" value="0" />
         <Picker.Item label="2 clases al mes" value="2" />
         <Picker.Item label="4 clases al mes" value="4" />
+      </Picker>
+
+      {/* Selector de tipo de pago */}
+      <Text style={styles.label}>Tipo de Pago</Text>
+      <Picker
+        selectedValue={tipoPago}
+        style={styles.input}
+        onValueChange={(itemValue) => setTipoPago(itemValue)}
+      >
+        <Picker.Item label="Pago en App" value="1" />
+        <Picker.Item label="Domiciliación" value="2" />
+      </Picker>
+
+      {/* Selector de mes de matrícula */}
+      <Text style={styles.label}>Mes de Matrícula</Text>
+      <Picker
+        selectedValue={mesMatricula}
+        style={styles.input}
+        onValueChange={(itemValue) => setMesMatricula(itemValue)}
+      >
+        <Picker.Item label="Clases sueltas (sin matrícula)" value="0" />
+        <Picker.Item label="Enero" value="1" />
+        <Picker.Item label="Febrero" value="2" />
+        <Picker.Item label="Marzo" value="3" />
+        <Picker.Item label="Abril" value="4" />
+        <Picker.Item label="Mayo" value="5" />
+        <Picker.Item label="Junio" value="6" />
+        <Picker.Item label="Julio" value="7" />
+        <Picker.Item label="Agosto" value="8" />
+        <Picker.Item label="Septiembre" value="9" />
+        <Picker.Item label="Octubre" value="10" />
+        <Picker.Item label="Noviembre" value="11" />
+        <Picker.Item label="Diciembre" value="12" />
       </Picker>
 
       <Button title="Registrarse" onPress={handleRegister} />
