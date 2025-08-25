@@ -83,7 +83,7 @@ const styles = {
 };
 
 // --- Checkout Form ---
-const CheckoutForm = ({ amount, setStatus, setError }) => {
+const CheckoutForm = ({ amount, setStatus, setError, idAlumno }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -113,7 +113,7 @@ const CheckoutForm = ({ amount, setStatus, setError }) => {
       const res = await fetch(`${API_URL}/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Math.round(amount * 100) }),
+        body: JSON.stringify({ amount: Math.round(amount * 100), idAlumno: idAlumno }),
       });
 
       const data = await res.json();
@@ -161,7 +161,7 @@ const CheckoutForm = ({ amount, setStatus, setError }) => {
 };
 
 // --- Componente Principal ---
-export default function PagosWeb({ tipoPago }) {
+export default function PagosWeb({ tipoPago, idAlumno }) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [amount] = useState(1.00); // 💶 pago mínimo: 1 €
@@ -181,7 +181,7 @@ export default function PagosWeb({ tipoPago }) {
           <p style={styles.status}>✅ ¡Pago realizado con éxito!</p>
         ) : (
           <>
-            <CheckoutForm amount={amount} setStatus={setStatus} setError={setError} />
+            <CheckoutForm amount={amount} setStatus={setStatus} setError={setError} idAlumno={idAlumno} />
             {error && <p style={styles.error}>{error}</p>}
           </>
         )}

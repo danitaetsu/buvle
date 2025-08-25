@@ -10,6 +10,73 @@ const port = process.env.PORT || 3000;
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+// 👇 CAMBIO 1: El webhook necesita el 'body' en formato raw.
+// Esto debe ir ANTES que app.use(bodyParser.json()).
+app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.log(`❌ Error de verificación de webhook: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Manejar el evento de pago exitoso
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    const idAlumno = paymentIntent.metadata.id_alumno;
+
+    if (!idAlumno) {
+      console.log("⚠️ Webhook recibido sin id_alumno en metadata.");
+      return res.status(400).send("Metadata incompleta.");
+    }
+    
+    console.log(`✅ Webhook: Pago exitoso para el alumno: ${idAlumno}`);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN'); // Iniciar transacción
+
+      // 1. Actualizar las clases disponibles del alumno
+      const updateResult = await client.query(
+        `UPDATE alumnos 
+         SET clases_disponibles = clases_disponibles + plan_clases
+         WHERE id_alumno = $1
+         RETURNING nombre, clases_disponibles`,
+        [idAlumno]
+      );
+      
+      console.log(`   -> Clases actualizadas para ${updateResult.rows[0].nombre}. Ahora tiene ${updateResult.rows[0].clases_disponibles}.`);
+      
+      // 2. Insertar el registro del pago en la nueva tabla 'pagos'
+      await client.query(
+        `INSERT INTO pagos (id_alumno, stripe_payment_intent_id, monto, moneda, estado)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [idAlumno, paymentIntent.id, paymentIntent.amount, paymentIntent.currency, paymentIntent.status]
+      );
+      
+      console.log(`   -> Registro de pago creado en la tabla 'pagos'.`);
+      
+      await client.query('COMMIT'); // Confirmar transacción
+    } catch (dbError) {
+      await client.query('ROLLBACK'); // Revertir en caso de error
+      console.error('❌ Error en la transacción del webhook:', dbError);
+      return res.status(500).json({ error: "Error de base de datos" });
+    } finally {
+      client.release();
+    }
+  } else {
+    console.log(`Evento no manejado: ${event.type}`);
+  }
+
+  res.json({received: true});
+});
+
+
 app.use(bodyParser.json());
 app.use(cors({ origin: '*' }));;
 
@@ -305,14 +372,25 @@ app.post("/change-password", async (req, res) => {
 });
 
 //ENDPOINT PARA PAYMENT
+
+// 👇 CAMBIO 2: Actualizamos el endpoint de payment
 app.post("/create-payment-intent", async (req, res) => {
-  const { amount } = req.body; // cantidad en centavos (ej: 10€ = 1000)
+  // Recibimos idAlumno desde el frontend
+  const { amount, idAlumno } = req.body; 
+
+  if (!idAlumno) {
+    return res.status(400).json({ error: "Falta el ID del alumno." });
+  }
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: "eur", // o "usd" según lo que uses
+      currency: "eur",
       automatic_payment_methods: { enabled: true },
+      // Añadimos el idAlumno a la metadata para recuperarlo en el webhook
+      metadata: {
+        id_alumno: idAlumno,
+      },
     });
 
     res.send({
