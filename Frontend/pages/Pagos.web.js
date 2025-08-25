@@ -7,7 +7,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 
-// --- Configuración ---
+// --- Configuración --
 const API_URL = "https://buvle-backend.onrender.com";
 // ⚠️ Usa tu clave PUBLICABLE (pk_test_xxx o pk_live_xxx)
 const PUBLISHABLE_KEY = "pk_live_51Q2sLs04VOrKio1OOc0cM0yNNrMAFuOqRIuM4Vrh8QqhqSdyNUB8fPj5jVdZauiOjyAA8pWxFMtvdarnzPeHic2m00IiftIRS1"; 
