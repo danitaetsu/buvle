@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-// Importamos componentes de React Native que también funcionan en la web
+// Importamos componentes de React Native que funcionan bien en la web
 import { View, Text, Button, StyleSheet, ActivityIndicator } from 'react-native';
 // Importamos las librerías de Stripe específicas para React web
 import {
@@ -12,8 +12,8 @@ import { loadStripe } from '@stripe/stripe-js';
 
 // --- Configuración ---
 const API_URL = "https://buvle-backend.onrender.com";
-// 👇 ¡MUY IMPORTANTE! Asegúrate de que esta es tu clave publicable REAL
-const PUBLISHABLE_KEY = "pk_test_xxx"; 
+// 👇 ¡CRÍTICO! Asegúrate de que aquí está tu clave publicable REAL de Stripe
+const PUBLISHABLE_KEY = "pk_live_51Q2sLs04VOrKio1OOc0cM0yNNrMAFuOqRIuM4Vrh8QqhqSdyNUB8fPj5jVdZauiOjyAA8pWxFMtvdarnzPeHic2m00IiftIRS1"; 
 
 // Carga la instancia de Stripe una sola vez.
 const stripePromise = loadStripe(PUBLISHABLE_KEY);
@@ -32,19 +32,19 @@ const cardElementOptions = {
 };
 
 // --- Componente interno que maneja el formulario de pago ---
-// Usamos un <form> y elementos de HTML puros para la máxima compatibilidad con Stripe.
-const CheckoutForm = ({ setPaymentStatus, amount }) => {
+// Usamos elementos HTML puros (<form>, <button>) para la máxima compatibilidad con Stripe.
+const CheckoutForm = ({ setPaymentStatus, amount, setLastError }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const [errorMessage, setErrorMessage] = useState(null);
 
   const handleSubmit = async (event) => {
-    // Prevenimos que la página se recargue al enviar el formulario
     event.preventDefault();
     setPaymentStatus('processing');
+    setLastError(''); // Limpiamos errores anteriores
 
     if (!stripe || !elements) {
-      setErrorMessage("Stripe no está listo. Inténtalo de nuevo.");
+      const errorMsg = "Stripe no está listo.";
+      setLastError(errorMsg);
       setPaymentStatus('error');
       return;
     }
@@ -52,7 +52,6 @@ const CheckoutForm = ({ setPaymentStatus, amount }) => {
     const cardElement = elements.getElement(CardElement);
 
     try {
-      // 1. Llamar a tu backend para crear el PaymentIntent
       const res = await fetch(`${API_URL}/create-payment-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,46 +61,45 @@ const CheckoutForm = ({ setPaymentStatus, amount }) => {
       const { clientSecret, error: backendError } = await res.json();
 
       if (backendError || !clientSecret) {
-        setErrorMessage(backendError || "Error del servidor al iniciar el pago.");
+        const errorMsg = backendError || "Error del servidor al iniciar el pago.";
+        setLastError(errorMsg);
         setPaymentStatus('error');
         return;
       }
 
-      // 2. Usar el clientSecret para confirmar el pago en el frontend
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: { card: cardElement },
       });
 
       if (error) {
-        setErrorMessage(error.message);
+        setLastError(error.message);
         setPaymentStatus('error');
       } else {
         console.log('Pago exitoso:', paymentIntent);
         setPaymentStatus('success');
       }
     } catch (err) {
-      console.error("Error de conexión:", err);
-      setErrorMessage("No se pudo conectar con el servidor de pagos.");
+      console.error("Error en handleSubmit:", err);
+      const errorMsg = "No se pudo conectar con el servidor de pagos.";
+      setLastError(errorMsg);
       setPaymentStatus('error');
     }
   };
 
   return (
-    // Usamos un <form> de HTML en lugar de un <View> para el formulario
+    // SOLUCIÓN: Usamos un <form> de HTML. Esto crea un entorno estable para Stripe.
     <form onSubmit={handleSubmit} style={styles.formContainer}>
-      {/* CORRECCIÓN: Usamos <p> en lugar de <Text> dentro del <form> */}
+      {/* SOLUCIÓN: Usamos <p> para el texto. Esto evita el error "Unexpected text node". */}
       <p style={styles.formTitle}>Introduce los datos de tu tarjeta</p>
       <div style={styles.cardElementWrapper}>
         <CardElement options={cardElementOptions} />
       </div>
       <div style={styles.buttonContainer}>
-        {/* Usamos un <button> de HTML para el envío del formulario */}
+        {/* SOLUCIÓN: Usamos un <button> de HTML. Esto soluciona el "IntegrationError". */}
         <button type="submit" style={styles.button} disabled={!stripe}>
           {`Pagar ${amount.toFixed(2)} €`}
         </button>
       </div>
-      {/* CORRECCIÓN: Usamos <p> para mostrar el mensaje de error */}
-      {errorMessage && <p style={styles.errorText}>{errorMessage}</p>}
     </form>
   );
 };
@@ -109,7 +107,8 @@ const CheckoutForm = ({ setPaymentStatus, amount }) => {
 // --- Componente Principal que exportas ---
 export default function Pagos({ tipoPago, mesMatricula, planClases }) {
   const [paymentStatus, setPaymentStatus] = useState('idle');
-  const [paymentAmount, setPaymentAmount] = useState(0.05);
+  const [paymentAmount, setPaymentAmount] = useState(0.05); // Cantidad restaurada
+  const [lastError, setLastError] = useState('');
 
   if (Number(tipoPago) !== 1) {
     return (
@@ -126,7 +125,6 @@ export default function Pagos({ tipoPago, mesMatricula, planClases }) {
         <View style={styles.container}>
           <ActivityIndicator size="large" color="#007bff" />
           <Text style={styles.statusTitle}>Procesando tu pago...</Text>
-          <Text style={styles.statusSubtitle}>Por favor, no cierres esta ventana.</Text>
         </View>
       );
     case 'success':
@@ -140,7 +138,7 @@ export default function Pagos({ tipoPago, mesMatricula, planClases }) {
       return (
         <View style={styles.container}>
           <Text style={styles.statusTitle}>❌ Hubo un error</Text>
-          {/* Aquí podrías pasar el mensaje de error para mostrarlo */}
+          <Text style={styles.errorText}>{lastError}</Text>
           <Button title="Intentar de nuevo" onPress={() => setPaymentStatus('idle')} />
         </View>
       );
@@ -148,7 +146,11 @@ export default function Pagos({ tipoPago, mesMatricula, planClases }) {
       return (
         <View style={styles.container}>
           <Elements stripe={stripePromise}>
-            <CheckoutForm setPaymentStatus={setPaymentStatus} amount={paymentAmount} />
+            <CheckoutForm 
+              setPaymentStatus={setPaymentStatus} 
+              setLastError={setLastError}
+              amount={paymentAmount} 
+            />
           </Elements>
         </View>
       );
@@ -156,7 +158,6 @@ export default function Pagos({ tipoPago, mesMatricula, planClases }) {
 }
 
 // --- Estilos ---
-// Combinamos StyleSheet de RN con estilos en línea para los elementos HTML
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -201,7 +202,10 @@ const styles = StyleSheet.create({
     color: 'white',
     border: 'none',
     borderRadius: 4,
-    padding: '12px 16px',
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingLeft: 16,
+    paddingRight: 16,
     fontSize: 16,
     fontWeight: 'bold',
     cursor: 'pointer',
@@ -214,19 +218,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'sans-serif',
   },
-  // Estilos para componentes de React Native
   statusTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 12,
   },
-  statusSubtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: 20,
-  },
 });
-
-//comment para guardar version estable
