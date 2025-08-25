@@ -228,3 +228,5 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 });
+
+//comment para guardar version estable
