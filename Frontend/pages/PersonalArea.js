@@ -33,6 +33,7 @@ export default function PersonalArea({
             tipoPago={tipoPago} 
             mesMatricula={mesMatricula} 
             planClases={planClases} 
+            idAlumno={idAlumno}
           />
         );
       case 'ajustes':
