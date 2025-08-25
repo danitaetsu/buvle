@@ -9,7 +9,7 @@ export default function Menu({ setCurrentPage }) {
       <Button title="Formato" onPress={() => setCurrentPage('formato')} />
       <Button title="Clases" onPress={() => setCurrentPage('clases')} />
       <Button title="Pagos" onPress={() => setCurrentPage('pagos')} />
-      <Button title="Ajustes" onPress={() => setCurrentPage('ajustes')} /> {/* 👈 nuevo */}
+      <Button title="Ajustes" onPress={() => setCurrentPage('ajustes')} /> 
     </View>
   );
 }

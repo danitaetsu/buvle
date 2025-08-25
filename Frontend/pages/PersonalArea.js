@@ -4,7 +4,7 @@ import Menu from '../components/Menu';
 import Horario from './Horario';
 import Formato from './Formato';
 import Clases from './Clases';
-import Pagos from './Pagos';
+import Pagos from './Pagos.web';
 import Ajustes from './Ajustes';
 
 export default function PersonalArea({ 
