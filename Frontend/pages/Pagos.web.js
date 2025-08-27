@@ -189,3 +189,5 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
     </div>
   );
 }
+
+// funciona
