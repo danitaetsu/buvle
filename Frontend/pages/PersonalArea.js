@@ -24,7 +24,7 @@ export default function PersonalArea({
       case 'horario':
         return <Horario id_alumno={idAlumno} />;
       case 'formato':
-        return <Formato />;
+         return <Formato planClases={planClases} />;;
       case 'clases':
         return <Clases id_alumno={idAlumno} />;
       case 'pagos':
