@@ -85,6 +85,7 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
+  const [price, setPrice] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -105,7 +106,6 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
     }
 
     try {
-      // 👇 Ya no pasamos amount, solo el idAlumno
       const res = await fetch(`${API_URL}/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,12 +121,11 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
         return;
       }
 
-      // Confirmar pago en Stripe
+      setPrice(data.amount); // 👈 guardamos el precio que vino del backend
+
       const result = await stripe.confirmCardPayment(data.clientSecret, {
         payment_method: { card: cardElement },
       });
-
-      console.log("DEBUG: confirmCardPayment result =", result);
 
       if (result.error) {
         setError(result.error.message);
@@ -150,7 +149,7 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
         <CardElement options={cardElementOptions} />
       </div>
       <button style={styles.button} type="submit" disabled={!stripe || loading}>
-        {loading ? "Procesando..." : "Pagar"}
+        {loading ? "Procesando..." : price ? `Pagar ${price.toFixed(2)} €` : "Pagar"}
       </button>
     </form>
   );

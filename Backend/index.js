@@ -415,7 +415,11 @@ app.post("/create-payment-intent", async (req, res) => {
       metadata: { id_alumno: idAlumno },
     });
 
-    res.send({ clientSecret: paymentIntent.client_secret });
+    res.send({
+  clientSecret: paymentIntent.client_secret,
+  amount: amount / 100 // lo devolvemos en euros para el frontend
+});
+
   } catch (err) {
     console.error("❌ Error en Stripe:", err);
     res.status(500).json({ error: err.message });
