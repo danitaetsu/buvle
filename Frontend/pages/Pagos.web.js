@@ -9,9 +9,7 @@ import { loadStripe } from "@stripe/stripe-js";
 
 // --- Configuración --
 const API_URL = "https://buvle-backend.onrender.com";
-// ⚠️ Usa tu clave PUBLICABLE (pk_test_xxx o pk_live_xxx)
 const PUBLISHABLE_KEY = "pk_live_51Q2sLs04VOrKio1OOc0cM0yNNrMAFuOqRIuM4Vrh8QqhqSdyNUB8fPj5jVdZauiOjyAA8pWxFMtvdarnzPeHic2m00IiftIRS1"; 
-
 const stripePromise = loadStripe(PUBLISHABLE_KEY);
 
 // --- Estilos ---
@@ -83,7 +81,7 @@ const styles = {
 };
 
 // --- Checkout Form ---
-const CheckoutForm = ({ amount, setStatus, setError, idAlumno }) => {
+const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -100,8 +98,6 @@ const CheckoutForm = ({ amount, setStatus, setError, idAlumno }) => {
     }
 
     const cardElement = elements.getElement(CardElement);
-    console.log("DEBUG: cardElement =", cardElement);
-
     if (!cardElement) {
       setError("El formulario de tarjeta no está montado correctamente.");
       setLoading(false);
@@ -109,11 +105,11 @@ const CheckoutForm = ({ amount, setStatus, setError, idAlumno }) => {
     }
 
     try {
-      // Crear payment intent en el backend
+      // 👇 Ya no pasamos amount, solo el idAlumno
       const res = await fetch(`${API_URL}/create-payment-intent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Math.round(amount * 100), idAlumno: idAlumno }),
+        body: JSON.stringify({ idAlumno }),
       });
 
       const data = await res.json();
@@ -154,7 +150,7 @@ const CheckoutForm = ({ amount, setStatus, setError, idAlumno }) => {
         <CardElement options={cardElementOptions} />
       </div>
       <button style={styles.button} type="submit" disabled={!stripe || loading}>
-        {loading ? "Procesando..." : `Pagar ${amount.toFixed(2)} €`}
+        {loading ? "Procesando..." : "Pagar"}
       </button>
     </form>
   );
@@ -164,7 +160,6 @@ const CheckoutForm = ({ amount, setStatus, setError, idAlumno }) => {
 export default function PagosWeb({ tipoPago, idAlumno }) {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
-  const [amount] = useState(1.00); // 💶 pago mínimo: 1 €
 
   if (tipoPago !== 1) {
     return (
@@ -181,7 +176,7 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
           <p style={styles.status}>✅ ¡Pago realizado con éxito!</p>
         ) : (
           <>
-            <CheckoutForm amount={amount} setStatus={setStatus} setError={setError} idAlumno={idAlumno} />
+            <CheckoutForm setStatus={setStatus} setError={setError} idAlumno={idAlumno} />
             {error && <p style={styles.error}>{error}</p>}
           </>
         )}

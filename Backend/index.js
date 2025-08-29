@@ -375,27 +375,47 @@ app.post("/change-password", async (req, res) => {
 
 // 👇 CAMBIO 2: Actualizamos el endpoint de payment
 app.post("/create-payment-intent", async (req, res) => {
-  // Recibimos idAlumno desde el frontend
-  const { amount, idAlumno } = req.body; 
+  const { idAlumno } = req.body; 
 
   if (!idAlumno) {
     return res.status(400).json({ error: "Falta el ID del alumno." });
   }
 
   try {
+    // 1. Buscar el plan de clases del alumno
+    const result = await pool.query(
+      "SELECT plan_clases FROM alumnos WHERE id_alumno = $1",
+      [idAlumno]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Alumno no encontrado" });
+    }
+
+    const planClases = result.rows[0].plan_clases;
+
+    // 2. Tabla de precios (en céntimos)
+    const precios = {
+      0: 100,  // 1 €
+      2: 150,  // 1,5 €
+      4: 200   // 2 €
+    };
+
+    const amount = precios[planClases];
+
+    if (!amount) {
+      return res.status(400).json({ error: "Plan de clases no válido." });
+    }
+
+    // 3. Crear PaymentIntent en Stripe
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
-      // Añadimos el idAlumno a la metadata para recuperarlo en el webhook
-      metadata: {
-        id_alumno: idAlumno,
-      },
+      metadata: { id_alumno: idAlumno },
     });
 
-    res.send({
-      clientSecret: paymentIntent.client_secret,
-    });
+    res.send({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error("❌ Error en Stripe:", err);
     res.status(500).json({ error: err.message });
@@ -403,8 +423,8 @@ app.post("/create-payment-intent", async (req, res) => {
 });
 
 
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
 
-// funciona

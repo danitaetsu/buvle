@@ -99,17 +99,6 @@ export default function Register({ setIsRegistering }) {
         <Picker.Item label="4 clases al mes" value="4" />
       </Picker>
 
-      {/* Selector de tipo de pago */}
-      <Text style={styles.label}>Tipo de Pago</Text>
-      <Picker
-        selectedValue={tipoPago}
-        style={styles.input}
-        onValueChange={(itemValue) => setTipoPago(itemValue)}
-      >
-        <Picker.Item label="Pago en App" value="1" />
-        <Picker.Item label="Domiciliación" value="2" />
-      </Picker>
-
       {/* Selector de mes de matrícula */}
       <Text style={styles.label}>Mes de Matrícula</Text>
       <Picker
