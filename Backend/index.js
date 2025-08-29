@@ -10,6 +10,8 @@ const port = process.env.PORT || 3000;
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
+
+
 // 👇 CAMBIO 1: El webhook necesita el 'body' en formato raw.
 // Esto debe ir ANTES que app.use(bodyParser.json()).
 app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (req, res) => {
@@ -77,13 +79,19 @@ app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (r
 });
 
 
+
+
 app.use(bodyParser.json());
 app.use(cors({ origin: '*' }));;
+
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
+
+
+
 
 // inicializar resend con tu API KEY (añádela en Render → Environment)
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -159,6 +167,35 @@ app.post("/register", async (req, res) => {
   }
 });
 
+
+// --- NUEVO ENDPOINT PARA VERIFICAR SI UN MES ESTÁ PAGADO ---
+app.get("/estado-mes/:idAlumno/:anio/:mes", async (req, res) => {
+  // 1. Recogemos los datos que nos preguntan: quién, qué año y qué mes.
+  const { idAlumno, anio, mes } = req.params;
+
+  // Imprimimos en la consola de Render para que veas la pregunta que llega.
+  console.log(`Consultando estado para Alumno: ${idAlumno}, Año: ${anio}, Mes: ${mes}`);
+
+  try {
+    // 2. Buscamos en nuestro "cuaderno" de meses_pagados.
+    const result = await pool.query(
+      `SELECT id_acceso FROM meses_pagados 
+       WHERE id_alumno = $1 AND anio = $2 AND mes = $3`,
+      [idAlumno, anio, mes]
+    );
+
+    // 3. Respondemos la pregunta.
+    // Si la consulta encontró una fila (result.rows.length > 0), significa que está pagado.
+    if (result.rows.length > 0) {
+      res.json({ pagado: true }); // Respondemos: SÍ, está pagado.
+    } else {
+      res.json({ pagado: false }); // Respondemos: NO, no está pagado.
+    }
+  } catch (err) {
+    console.error("❌ Error en /estado-mes:", err);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+});
 
 // FORGOT PASSWORD
 app.post("/forgot-password", async (req, res) => {
