@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Elements,
   CardElement,
@@ -86,13 +86,41 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [price, setPrice] = useState(null);
+  const [clientSecret, setClientSecret] = useState(null);
+
+  // 👇 Pedimos el precio apenas se monta el componente
+  useEffect(() => {
+    const fetchPrice = async () => {
+      try {
+        const res = await fetch(`${API_URL}/create-payment-intent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idAlumno }),
+        });
+        const data = await res.json();
+        console.log("DEBUG: create-payment-intent =", data);
+
+        if (data.clientSecret) {
+          setPrice(data.amount);
+          setClientSecret(data.clientSecret);
+        } else {
+          setError(data.error || "No se pudo obtener el precio.");
+        }
+      } catch (err) {
+        console.error("❌ Error en fetchPrice:", err);
+        setError("Error al obtener el precio del servidor.");
+      }
+    };
+
+    fetchPrice();
+  }, [idAlumno, setError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    if (!stripe || !elements) {
+    if (!stripe || !elements || !clientSecret) {
       setError("Stripe no está listo todavía.");
       setLoading(false);
       return;
@@ -106,24 +134,7 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
     }
 
     try {
-      const res = await fetch(`${API_URL}/create-payment-intent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idAlumno }),
-      });
-
-      const data = await res.json();
-      console.log("DEBUG: response de backend =", data);
-
-      if (!data.clientSecret) {
-        setError(data.error || "No se pudo iniciar el pago.");
-        setLoading(false);
-        return;
-      }
-
-      setPrice(data.amount); // 👈 guardamos el precio que vino del backend
-
-      const result = await stripe.confirmCardPayment(data.clientSecret, {
+      const result = await stripe.confirmCardPayment(clientSecret, {
         payment_method: { card: cardElement },
       });
 
@@ -136,7 +147,7 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
       }
     } catch (err) {
       console.error("❌ Error en handleSubmit:", err);
-      setError("Error de conexión con el servidor.");
+      setError("Error en el proceso de pago.");
     }
 
     setLoading(false);
@@ -148,12 +159,15 @@ const CheckoutForm = ({ setStatus, setError, idAlumno }) => {
       <div style={styles.cardWrapper}>
         <CardElement options={cardElementOptions} />
       </div>
-      <button style={styles.button} type="submit" disabled={!stripe || loading}>
+
+   
+      <button style={styles.button} type="submit" disabled={!stripe || loading || !clientSecret}>
         {loading ? "Procesando..." : price ? `Pagar ${price.toFixed(2)} €` : "Pagar"}
       </button>
     </form>
   );
 };
+
 
 // --- Componente Principal ---
 export default function PagosWeb({ tipoPago, idAlumno }) {
