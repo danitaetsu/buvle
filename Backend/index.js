@@ -139,13 +139,17 @@ app.post("/register", async (req, res) => {
       return res.status(400).json({ success: false, message: "El correo ya está registrado" });
     }
 
-    const clasesIniciales = parseInt(plan_clases, 10);
+       // ✨ Hacemos el valor explícito para que no haya dudas.
+    const clasesDisponiblesIniciales = 0;
+
+    // ✨ AÑADIMOS ESTE CONSOLE.LOG PARA DEPURAR
+    console.log(`Intentando registrar a ${email} con plan ${plan_clases} y ${clasesDisponiblesIniciales} clases disponibles.`);
 
     await pool.query(
       `INSERT INTO alumnos 
         (nombre, email, password, clases_disponibles, plan_clases, tipo_pago, mes_matricula) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [nombre, email, password, clasesIniciales, plan_clases, tipo_pago, mes_matricula]
+      [nombre, email, password, clasesDisponiblesIniciales, plan_clases, tipo_pago, mes_matricula]
     );
 
     res.status(201).json({ success: true, message: "Alumno registrado con éxito" });
