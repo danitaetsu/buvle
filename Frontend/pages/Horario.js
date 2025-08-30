@@ -10,13 +10,14 @@ import {
 } from "react-native";
 import { Calendar } from "react-native-big-calendar";
 
-export default function Horario({ id_alumno }) {
+export default function Horario({ id_alumno, setCurrentPage }) {
   const baseUrl = "https://buvle-backend.onrender.com";
 
   const [allEvents, setAllEvents] = useState([]); // todas las reservas
   const [events, setEvents] = useState([]); // eventos que se pintan en el calendario
   const [turnos, setTurnos] = useState([]);
   const [loading, setLoading] = useState(true);
+ 
 
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -25,11 +26,32 @@ export default function Horario({ id_alumno }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const today = new Date();
 
+  // --- ✨ NUEVOS ESTADOS ---
+  const [mesPagado, setMesPagado] = useState(false); // ¿Está pagado el mes actual?
+  const [verificandoPago, setVerificandoPago] = useState(true); // Para mostrar un spinner mientras preguntamos
+
   const franjas = [
     { hi: "12:00", hf: "14:00" },
     { hi: "17:00", hf: "19:00" },
     { hi: "19:00", hf: "21:00" },
   ];
+
+   // Esta función pregunta al backend si el mes de la fecha que le pasemos está pagado
+  const verificarEstadoMes = useCallback(async (fecha) => {
+    setVerificandoPago(true);
+    const anio = fecha.getFullYear();
+    const mes = fecha.getMonth() + 1;
+    try {
+      const res = await fetch(`${baseUrl}/estado-mes/${id_alumno}/${anio}/${mes}`);
+      const data = await res.json();
+      setMesPagado(data.pagado);
+    } catch (err) {
+      console.error("Error al verificar el estado del mes:", err);
+      setMesPagado(false); // Por seguridad, si hay un error, bloqueamos
+    } finally {
+      setVerificandoPago(false);
+    }
+  }, [id_alumno]); // Solo se vuelve a crear si cambia el id_alumno
 
   const ymdLocal = (d) => {
     const yyyy = d.getFullYear();
@@ -114,8 +136,9 @@ export default function Horario({ id_alumno }) {
   );
 
   useEffect(() => {
+    verificarEstadoMes(currentMonth);
     loadData(currentMonth);
-  }, [loadData, currentMonth]);
+  }, [loadData, currentMonth, verificarEstadoMes]);
 
   const openDayModal = (date) => {
     if (isBlockedDate(date)) {
@@ -272,6 +295,28 @@ export default function Horario({ id_alumno }) {
         }}
       />
 
+  {/* Esta es la capa que se mostrará por encima del calendario */}
+      {(verificandoPago || !mesPagado) && (
+        <View style={styles.overlay}>
+          {verificandoPago ? (
+            <ActivityIndicator size="large" color="#fff" />
+          ) : (
+            <View style={styles.overlayContent}>
+              <Text style={styles.overlayText}>Mes Bloqueado</Text>
+              <Text style={styles.overlaySubText}>Paga este mes para poder reservar tus clases.</Text>
+              <Pressable
+                style={styles.overlayButton}
+                onPress={() => setCurrentPage('pagos')}
+              >
+                <Text style={styles.overlayButtonText}>Ir a Pagos</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
+
+
+
       {/* Modal reservas */}
       <Modal
         visible={modalVisible}
@@ -368,6 +413,42 @@ const styles = StyleSheet.create({
   },
   monthTitle: { fontSize: 18, fontWeight: "bold", textTransform: "capitalize" },
   arrow: { fontSize: 24, color: "#333" },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(52, 73, 94, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10, // Para asegurar que esté por encima del calendario
+  },
+  overlayContent: {
+    alignItems: 'center',
+  },
+  overlayText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 10,
+  },
+  overlaySubText: {
+    fontSize: 16,
+    color: '#ecf0f1',
+    marginBottom: 20,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  overlayButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+  },
+  overlayButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
 
   modalOverlay: {
     flex: 1,
