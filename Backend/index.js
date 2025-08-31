@@ -62,7 +62,18 @@ app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (r
       );
       
       console.log(`   -> Registro de pago creado en la tabla 'pagos'.`);
-      
+
+
+          // 3. Insertar el "pase de acceso" en 'meses_pagados'
+      await client.query(
+        `INSERT INTO meses_pagados (id_alumno, anio, mes, id_pago_stripe)
+         VALUES ($1, EXTRACT(YEAR FROM NOW()), EXTRACT(MONTH FROM NOW()), $2)`,
+        [idAlumno, paymentIntent.id]
+      );
+      console.log(`   -> Pase de acceso creado en 'meses_pagados'.`);
+
+
+
       await client.query('COMMIT'); // Confirmar transacción
     } catch (dbError) {
       await client.query('ROLLBACK'); // Revertir en caso de error
