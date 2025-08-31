@@ -151,6 +151,26 @@ app.post("/register", async (req, res) => {
   }
 });
 
+// --- ENDPOINT PARA ACTUALIZAR EL PLAN DE CLASES ---
+app.post("/update-plan", async (req, res) => {
+  const { idAlumno, nuevoPlan } = req.body;
+
+  if (!idAlumno || !nuevoPlan) {
+    return res.status(400).json({ success: false, message: "Faltan datos." });
+  }
+
+  try {
+    await pool.query(
+      "UPDATE alumnos SET plan_clases = $1 WHERE id_alumno = $2",
+      [nuevoPlan, idAlumno]
+    );
+    res.json({ success: true, message: "¡Plan actualizado con éxito!" });
+  } catch (err) {
+    console.error("❌ Error en /update-plan:", err);
+    res.status(500).json({ success: false, message: "Error en el servidor." });
+  }
+});
+
 
 // --- NUEVO ENDPOINT PARA VERIFICAR SI UN MES ESTÁ PAGADO ---
 // Endpoint para que el frontend consulte los meses pagados

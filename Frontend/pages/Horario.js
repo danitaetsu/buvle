@@ -269,7 +269,6 @@ export default function Horario({ id_alumno, setCurrentPage }) {
 
 
 
-      {/* --- Contenedor para el Calendario y la Capa de Bloqueo --- */}
       <View style={{ flex: 1 }}>
         <Calendar
           key={`${currentMonth.getFullYear()}-${currentMonth.getMonth()}-${events.length}`}
@@ -319,7 +318,7 @@ export default function Horario({ id_alumno, setCurrentPage }) {
       </View>
 
 
-      // Modal reservas
+    
       <Modal
         visible={modalVisible}
         transparent

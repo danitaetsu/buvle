@@ -1,3 +1,5 @@
+// PersonalArea.js - CORREGIDO
+
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, Button } from 'react-native';
 import Menu from '../components/Menu';
@@ -7,13 +9,15 @@ import Clases from './Clases';
 import Pagos from './Pagos.web';
 import Ajustes from './Ajustes';
 
-export default function PersonalArea({ 
-  nombre, 
-  idAlumno, 
-  setIsLoggedIn, 
-  tipoPago, 
-  mesMatricula, 
-  planClases 
+// --- 👇 RECIBE la nueva prop 'onPlanChanged' ---
+export default function PersonalArea({
+  nombre,
+  idAlumno,
+  setIsLoggedIn,
+  tipoPago,
+  mesMatricula,
+  planClases,
+  onPlanChanged
 }) {
   const [currentPage, setCurrentPage] = useState('home');
 
@@ -22,20 +26,18 @@ export default function PersonalArea({
       case 'home':
         return <Text style={styles.welcome}>Bienvenid@, {nombre}!</Text>;
       case 'horario':
-        return <Horario id_alumno={idAlumno} />;
+        return <Horario id_alumno={idAlumno} setCurrentPage={setCurrentPage} />;
       case 'formato':
-         return <Formato planClases={planClases} />;;
+        // --- 👇 PASA la prop a Formato ---
+        return <Formato
+                  planClases={planClases}
+                  idAlumno={idAlumno}
+                  onPlanChanged={onPlanChanged}
+               />;
       case 'clases':
         return <Clases id_alumno={idAlumno} />;
       case 'pagos':
-        return (
-          <Pagos 
-            tipoPago={tipoPago} 
-            mesMatricula={mesMatricula} 
-            planClases={planClases} 
-            idAlumno={idAlumno}
-          />
-        );
+        return <Pagos tipoPago={tipoPago} mesMatricula={mesMatricula} planClases={planClases} idAlumno={idAlumno} />;
       case 'ajustes':
         return <Ajustes idAlumno={idAlumno} />;
       default:

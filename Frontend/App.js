@@ -1,9 +1,11 @@
+// App.js - CORREGIDO
+
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Login from './components/Login';
 import Register from './components/Register';
 import PersonalArea from './pages/PersonalArea';
-import Password from './components/Password'; // 👈 pantalla de recuperación de contraseña
+import Password from './components/Password';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -12,10 +14,15 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
 
-  // 👉 nuevos estados globales
-  const [tipoPago, setTipoPago] = useState(null);       // 1 = App, 2 = Domiciliación
-  const [mesMatricula, setMesMatricula] = useState(null); // 0 = Clases sueltas, 1-12 = meses
-  const [planClases, setPlanClases] = useState(null);     // 0, 2, 4, ...
+  const [tipoPago, setTipoPago] = useState(null);
+  const [mesMatricula, setMesMatricula] = useState(null);
+  const [planClases, setPlanClases] = useState(null);
+
+  // --- 👇 NUEVA FUNCIÓN ---
+  // Esta función actualiza el estado cuando el plan cambia en Formato.js
+  const handlePlanChange = (nuevoPlan) => {
+    setPlanClases(nuevoPlan);
+  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -28,10 +35,11 @@ export default function App() {
           nombre={nombre}
           idAlumno={idAlumno}
           setIsLoggedIn={setIsLoggedIn}
-          // 👇 pasamos también los nuevos datos al área personal
           tipoPago={tipoPago}
           mesMatricula={mesMatricula}
           planClases={planClases}
+          // --- 👇 PASAMOS LA NUEVA FUNCIÓN ---
+          onPlanChanged={handlePlanChange}
         />
       ) : (
         <Login
@@ -40,7 +48,6 @@ export default function App() {
           setIdAlumno={setIdAlumno}
           setIsRegistering={setIsRegistering}
           setIsRecovering={setIsRecovering}
-          // 👇 pasamos los setters al login para guardar los valores
           setTipoPago={setTipoPago}
           setMesMatricula={setMesMatricula}
           setPlanClases={setPlanClases}
