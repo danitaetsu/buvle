@@ -158,6 +158,7 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
     try {
       const res = await fetch(`${API_URL}/alumno/${idAlumno}`);
       const data = await res.json();
+       console.log("👉 Respuesta /alumno:", data);
       if (data.success) {
         setMesMatricula(data.alumno.mes_matricula);
       }

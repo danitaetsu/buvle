@@ -9,11 +9,21 @@ export default function Register({ setIsRegistering }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [planClases, setPlanClases] = useState('4'); // por defecto 4 clases
   const [tipoPago, setTipoPago] = useState('1'); // 1 = Pago en App por defecto
-  const [mesMatricula, setMesMatricula] = useState('0'); // 0 = Clases sueltas
+  const [mesMatricula, setMesMatricula] = useState('1'); // por defecto Enero
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const handleRegister = async () => {
+    // Validación extra por seguridad
+    if (planClases === '0' && mesMatricula !== '0') {
+      setErrorMessage('Si eliges clases sueltas, el mes debe ser "Clases sueltas"');
+      return;
+    }
+    if ((planClases === '2' || planClases === '4') && mesMatricula === '0') {
+      setErrorMessage('Debes elegir un mes válido si seleccionas 2 o 4 clases');
+      return;
+    }
+
     if (!nombre || !email || !password || !confirmPassword || !planClases || !tipoPago || mesMatricula === undefined) {
       setErrorMessage('Todos los campos son obligatorios');
       return;
@@ -92,7 +102,14 @@ export default function Register({ setIsRegistering }) {
       <Picker
         selectedValue={planClases}
         style={styles.input}
-        onValueChange={(itemValue) => setPlanClases(itemValue)}
+        onValueChange={(itemValue) => {
+          setPlanClases(itemValue);
+          if (itemValue === '0') {
+            setMesMatricula('0'); // solo opción clases sueltas
+          } else if (mesMatricula === '0') {
+            setMesMatricula('1'); // fuerza a Enero si estaba en "0"
+          }
+        }}
       >
         <Picker.Item label="Clases sueltas" value="0" />
         <Picker.Item label="2 clases al mes" value="2" />
@@ -106,19 +123,24 @@ export default function Register({ setIsRegistering }) {
         style={styles.input}
         onValueChange={(itemValue) => setMesMatricula(itemValue)}
       >
-        <Picker.Item label="Clases sueltas (sin matrícula)" value="0" />
-        <Picker.Item label="Enero" value="1" />
-        <Picker.Item label="Febrero" value="2" />
-        <Picker.Item label="Marzo" value="3" />
-        <Picker.Item label="Abril" value="4" />
-        <Picker.Item label="Mayo" value="5" />
-        <Picker.Item label="Junio" value="6" />
-        <Picker.Item label="Julio" value="7" />
-        <Picker.Item label="Agosto" value="8" />
-        <Picker.Item label="Septiembre" value="9" />
-        <Picker.Item label="Octubre" value="10" />
-        <Picker.Item label="Noviembre" value="11" />
-        <Picker.Item label="Diciembre" value="12" />
+        {planClases === '0' ? (
+          <Picker.Item label="Clases sueltas (sin matrícula)" value="0" />
+        ) : (
+          <>
+            <Picker.Item label="Enero" value="1" />
+            <Picker.Item label="Febrero" value="2" />
+            <Picker.Item label="Marzo" value="3" />
+            <Picker.Item label="Abril" value="4" />
+            <Picker.Item label="Mayo" value="5" />
+            <Picker.Item label="Junio" value="6" />
+            <Picker.Item label="Julio" value="7" />
+            <Picker.Item label="Agosto" value="8" />
+            <Picker.Item label="Septiembre" value="9" />
+            <Picker.Item label="Octubre" value="10" />
+            <Picker.Item label="Noviembre" value="11" />
+            <Picker.Item label="Diciembre" value="12" />
+          </>
+        )}
       </Picker>
 
       <Button title="Registrarse" onPress={handleRegister} />
