@@ -1,5 +1,3 @@
-// App.js - CORREGIDO
-
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Login from './components/Login';
@@ -13,15 +11,13 @@ export default function App() {
   const [idAlumno, setIdAlumno] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
-
   const [tipoPago, setTipoPago] = useState(null);
   const [mesMatricula, setMesMatricula] = useState(null);
   const [planClases, setPlanClases] = useState(null);
 
-  // --- 👇 NUEVA FUNCIÓN ---
-  // Esta función actualiza el estado cuando el plan cambia en Formato.js
+  // Esta función es el "oído" del director.
   const handlePlanChange = (nuevoPlan) => {
-    setPlanClases(nuevoPlan);
+    setPlanClases(nuevoPlan); // Actualiza el estado principal de la App
   };
 
   return (
@@ -38,7 +34,7 @@ export default function App() {
           tipoPago={tipoPago}
           mesMatricula={mesMatricula}
           planClases={planClases}
-          // --- 👇 PASAMOS LA NUEVA FUNCIÓN ---
+          // Le pasamos la función para que el jefe pueda hablar con él
           onPlanChanged={handlePlanChange}
         />
       ) : (

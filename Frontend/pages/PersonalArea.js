@@ -1,5 +1,3 @@
-// PersonalArea.js - CORREGIDO
-
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, Button } from 'react-native';
 import Menu from '../components/Menu';
@@ -9,7 +7,7 @@ import Clases from './Clases';
 import Pagos from './Pagos.web';
 import Ajustes from './Ajustes';
 
-// --- 👇 RECIBE la nueva prop 'onPlanChanged' ---
+// Recibe la función del director y el plan actual
 export default function PersonalArea({
   nombre,
   idAlumno,
@@ -28,7 +26,7 @@ export default function PersonalArea({
       case 'horario':
         return <Horario id_alumno={idAlumno} setCurrentPage={setCurrentPage} />;
       case 'formato':
-        // --- 👇 PASA la prop a Formato ---
+        // Pasa la información y la función de comunicación al empleado
         return <Formato
                   planClases={planClases}
                   idAlumno={idAlumno}
@@ -37,7 +35,7 @@ export default function PersonalArea({
       case 'clases':
         return <Clases id_alumno={idAlumno} />;
       case 'pagos':
-        return <Pagos tipoPago={tipoPago} mesMatricula={mesMatricula} planClases={planClases} idAlumno={idAlumno} />;
+        return <Pagos tipoPago={tipoPago} idAlumno={idAlumno} />;
       case 'ajustes':
         return <Ajustes idAlumno={idAlumno} />;
       default:
@@ -55,14 +53,6 @@ export default function PersonalArea({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  welcome: {
-    fontSize: 18,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#f0f2f5' },
+  welcome: { flex: 1, textAlign: 'center', marginTop: 50, fontSize: 24 }
 });

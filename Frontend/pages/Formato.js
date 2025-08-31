@@ -1,5 +1,3 @@
-// Formato.js - VERSIÓN FINAL
-
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -10,7 +8,9 @@ export default function Formato({ planClases, idAlumno, onPlanChanged }) {
   const [selectedPlan, setSelectedPlan] = useState(planClases);
 
   const getPlanDescription = (plan) => {
-    switch (plan) {
+    // --- 👇 LA CORRECCIÓN ESTÁ AQUÍ ---
+    // Forzamos que 'plan' sea siempre un NÚMERO
+    switch (Number(plan)) {
       case 4: return { title: "Bono Mensual", classes: "4 clases" };
       case 2: return { title: "Bono Mensual", classes: "2 clases" };
       case 1: return { title: "Clases Sueltas", classes: "1 clase" };
@@ -83,7 +83,6 @@ export default function Formato({ planClases, idAlumno, onPlanChanged }) {
   );
 }
 
-// ... tus estilos existentes ...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
