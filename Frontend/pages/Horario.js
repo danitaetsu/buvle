@@ -26,9 +26,9 @@ export default function Horario({ id_alumno, setCurrentPage }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const today = new Date();
 
-  // --- ✨ NUEVOS ESTADOS ---
-  const [mesPagado, setMesPagado] = useState(false); // ¿Está pagado el mes actual?
-  const [verificandoPago, setVerificandoPago] = useState(true); // Para mostrar un spinner mientras preguntamos
+  // --- ESTADOS CORREGIDOS PARA LA LÓGICA DE PAGO ---
+  const [mesesPagados, setMesesPagados] = useState([]); // Guarda la lista de meses pagados
+  const [verificandoPago, setVerificandoPago] = useState(true);
 
   const franjas = [
     { hi: "12:00", hf: "14:00" },
@@ -36,22 +36,22 @@ export default function Horario({ id_alumno, setCurrentPage }) {
     { hi: "19:00", hf: "21:00" },
   ];
 
-   // Esta función pregunta al backend si el mes de la fecha que le pasemos está pagado
-  const verificarEstadoMes = useCallback(async (fecha) => {
+  // --- FUNCIÓN CORREGIDA: Pide la lista de todos los meses pagados ---
+  const fetchMesesPagados = useCallback(async () => {
+    if (!id_alumno) return;
     setVerificandoPago(true);
-    const anio = fecha.getFullYear();
-    const mes = fecha.getMonth() + 1;
     try {
-      const res = await fetch(`${baseUrl}/estado-mes/${id_alumno}/${anio}/${mes}`);
+      // Llama al endpoint correcto que devuelve la lista
+      const res = await fetch(`${baseUrl}/meses-pagados/${id_alumno}`);
       const data = await res.json();
-      setMesPagado(data.pagado);
+      setMesesPagados(data); // Guarda la lista completa, ej: [{anio: 2025, mes: 8}]
     } catch (err) {
       console.error("Error al verificar el estado del mes:", err);
-      setMesPagado(false); // Por seguridad, si hay un error, bloqueamos
+      setMesesPagados([]); // En caso de error, la lista está vacía
     } finally {
       setVerificandoPago(false);
     }
-  }, [id_alumno]); // Solo se vuelve a crear si cambia el id_alumno
+  }, [id_alumno]);
 
   const ymdLocal = (d) => {
     const yyyy = d.getFullYear();
@@ -136,9 +136,9 @@ export default function Horario({ id_alumno, setCurrentPage }) {
   );
 
   useEffect(() => {
-    verificarEstadoMes(currentMonth);
-    loadData(currentMonth);
-  }, [loadData, currentMonth, verificarEstadoMes]);
+    fetchMesesPagados(); // Primero pregunta por los meses pagados
+    loadData(currentMonth);  // Luego carga los datos del calendario
+  }, [loadData, currentMonth, fetchMesesPagados]);
 
   const openDayModal = (date) => {
     if (isBlockedDate(date)) {
@@ -223,9 +223,16 @@ export default function Horario({ id_alumno, setCurrentPage }) {
     }
   };
 
-  if (loading) {
+ if (loading || verificandoPago) { // Muestra el spinner si alguna de las dos cargas está activa
     return <ActivityIndicator style={{ flex: 1 }} size="large" />;
   }
+
+    // --- VERIFICACIÓN CORREGIDA ---
+  // Comprueba si el mes que se está viendo está en la lista de meses pagados
+  const haPagadoMesActual = mesesPagados.some(
+    (m) => m.anio === currentMonth.getFullYear() && m.mes === currentMonth.getMonth() + 1
+  );
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -259,65 +266,60 @@ export default function Horario({ id_alumno, setCurrentPage }) {
         </Pressable>
       </View>
 
-      <Calendar
-        key={`${currentMonth.getFullYear()}-${currentMonth.getMonth()}-${events.length}`}
-        date={new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)}
-        events={events}
-        height={600}
-        mode="month"
-        weekStartsOn={1}
-        locale="es"
-        onPressCell={openDayModal}
-        onPressEvent={(event) => openDayModal(event.start)}
-        // 👉 Colores: mis eventos rojos, otros verdes
-        eventCellStyle={(event) => ({
-          backgroundColor: event.isMine ? "red" : "green",
-        })}
-        // 👉 Respetar nuestro orden
-        sortedMonthView={false}
-        isEventOrderingEnabled={false}
-        dayHeaderStyle={(date) => {
-          const day = date.getDay();
-          if (day === 0 || day === 6) {
-            return { opacity: 0.5, fontSize: 10 };
-          }
-          return {};
-        }}
-        calendarCellStyle={(date) => {
-          if (isBlockedDate(date)) {
-            return { backgroundColor: "#b0b0b0", opacity: 0.6 }; // bloqueado
-          }
-          const day = date.getDay();
-          if (day === 0 || day === 6) {
-            return { backgroundColor: "#d6d6d6", opacity: 0.8 };
-          }
-          return { backgroundColor: "#fff" };
-        }}
-      />
-
-  {/* Esta es la capa que se mostrará por encima del calendario */}
-      {(verificandoPago || !mesPagado) && (
-        <View style={styles.overlay}>
-          {verificandoPago ? (
-            <ActivityIndicator size="large" color="#fff" />
-          ) : (
-            <View style={styles.overlayContent}>
-              <Text style={styles.overlayText}>Mes Bloqueado</Text>
-              <Text style={styles.overlaySubText}>Paga este mes para poder reservar tus clases.</Text>
-              <Pressable
-                style={styles.overlayButton}
-                onPress={() => setCurrentPage('pagos')}
-              >
-                <Text style={styles.overlayButtonText}>Ir a Pagos</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-      )}
 
 
 
-      {/* Modal reservas */}
+      {/* --- Contenedor para el Calendario y la Capa de Bloqueo --- */}
+      <View style={{ flex: 1 }}>
+        <Calendar
+          key={`${currentMonth.getFullYear()}-${currentMonth.getMonth()}-${events.length}`}
+          date={new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)}
+          events={events}
+          height={600}
+          mode="month"
+          weekStartsOn={1}
+          locale="es"
+          onPressCell={openDayModal}
+          onPressEvent={(event) => openDayModal(event.start)}
+          eventCellStyle={(event) => ({ backgroundColor: event.isMine ? "red" : "green" })}
+          sortedMonthView={false}
+          isEventOrderingEnabled={false}
+          dayHeaderStyle={(date) => {
+            const day = date.getDay();
+            if (day === 0 || day === 6) { return { opacity: 0.5, fontSize: 10 }; }
+            return {};
+          }}
+          calendarCellStyle={(date) => {
+            if (isBlockedDate(date)) { return { backgroundColor: "#b0b0b0", opacity: 0.6 }; }
+            const day = date.getDay();
+            if (day === 0 || day === 6) { return { backgroundColor: "#d6d6d6", opacity: 0.8 }; }
+            return { backgroundColor: "#fff" };
+          }}
+        />
+
+        {/* --- Capa de Bloqueo --- */}
+        {(verificandoPago || !haPagadoMesActual) && (
+          <View style={styles.overlay}>
+            {verificandoPago ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <View style={styles.overlayContent}>
+                <Text style={styles.overlayText}>Mes Bloqueado</Text>
+                <Text style={styles.overlaySubText}>Paga este mes para poder reservar tus clases.</Text>
+                <Pressable
+                  style={styles.overlayButton}
+                  onPress={() => setCurrentPage('pagos')}
+                >
+                  <Text style={styles.overlayButtonText}>Ir a Pagos</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+
+
+      // Modal reservas
       <Modal
         visible={modalVisible}
         transparent
