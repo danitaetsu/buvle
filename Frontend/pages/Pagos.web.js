@@ -86,6 +86,7 @@ const styles = {
     backgroundColor: '#6c757d',
     marginTop: '10px',
   }
+
 };
 
 // --- Componente del Formulario de Pago ---
@@ -137,20 +138,38 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
   const [mesesPagados, setMesesPagados] = useState([]);
   const [clientSecret, setClientSecret] = useState(null);
   const [precio, setPrecio] = useState(0);
+  const [mesMatricula, setMesMatricula] = useState(null);
+
 
   useEffect(() => {
-    const fetchMesesPagados = async () => {
-      if (!idAlumno) return;
-      try {
-        const res = await fetch(`${API_URL}/meses-pagados/${idAlumno}`);
-        const data = await res.json();
-        setMesesPagados(data);
-      } catch (err) {
-        console.error("Error al cargar meses pagados:", err);
+  const fetchMesesPagados = async () => {
+    if (!idAlumno) return;
+    try {
+      const res = await fetch(`${API_URL}/meses-pagados/${idAlumno}`);
+      const data = await res.json();
+      setMesesPagados(data);
+    } catch (err) {
+      console.error("Error al cargar meses pagados:", err);
+    }
+  };
+
+  const fetchAlumno = async () => {
+    if (!idAlumno) return;
+    try {
+      const res = await fetch(`${API_URL}/alumno/${idAlumno}`);
+      const data = await res.json();
+      if (data.success) {
+        setMesMatricula(data.alumno.mes_matricula);
       }
-    };
-    fetchMesesPagados();
-  }, [idAlumno, status]);
+    } catch (err) {
+      console.error("Error al cargar alumno:", err);
+    }
+  };
+
+  fetchMesesPagados();
+  fetchAlumno();
+}, [idAlumno, status]);
+
 
   const hoy = new Date();
   const mesActual = { anio: hoy.getFullYear(), mes: hoy.getMonth() + 1 };
@@ -186,6 +205,7 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
     );
   }
 
+
   return (
     <div style={styles.container}>
       <Elements stripe={stripePromise}>
@@ -220,11 +240,23 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
             <div style={styles.form}>
               <p style={styles.title}>Selecciona el bono a pagar</p>
               <button style={styles.button} onClick={() => iniciarPagoParaMes(mesActual)} disabled={haPagadoMesActual}>
-                {haPagadoMesActual ? `Pagado` : `Pagar ${monthNames[mesActual.mes - 1]}`}
+                {haPagadoMesActual ? `Pagado ${monthNames[mesActual.mes - 1]}` : `Pagar ${monthNames[mesActual.mes - 1]}`}
               </button>
               <button style={styles.button} onClick={() => iniciarPagoParaMes(mesSiguiente)} disabled={haPagadoMesSiguiente}>
-                {haPagadoMesSiguiente ? `Pagado` : `Pagar ${monthNames[mesSiguiente.mes - 1]}`}
+                {haPagadoMesSiguiente ? `Pagado ${monthNames[mesSiguiente.mes - 1]}` : `Pagar ${monthNames[mesSiguiente.mes - 1]}`}
               </button>
+
+                {/* Botón matrícula en gris */}
+<button 
+  style={{ ...styles.button, ...styles.cancelButton }} 
+  onClick={() => console.log("Pago matrícula")}
+>
+  {mesMatricula 
+    ? `Matrícula (${monthNames[mesMatricula - 1]})` 
+    : "Matrícula"}
+</button>
+
+
               {error && <p style={styles.error}>{error}</p>}
             </div>
           );

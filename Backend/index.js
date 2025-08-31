@@ -151,7 +151,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// --- ENDPOINT PARA ACTUALIZAR EL PLAN DE CLASES ---
+
 // --- ENDPOINT PARA ACTUALIZAR EL PLAN DE CLASES ---
 app.post("/update-plan", async (req, res) => {
   const { idAlumno, nuevoPlan } = req.body;
@@ -351,13 +351,14 @@ app.post("/refill", async (req, res) => {
   }
 });
 
+
 // GET alumno
 app.get("/alumno/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
     const result = await pool.query(
-      "SELECT id_alumno, nombre, clases_disponibles FROM alumnos WHERE id_alumno = $1",
+      "SELECT id_alumno, nombre, clases_disponibles, mes_matricula FROM alumnos WHERE id_alumno = $1",
       [id]
     );
 
