@@ -12,83 +12,56 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 
 
-// 👇 CAMBIO 1: El webhook necesita el 'body' en formato raw.
-// Esto debe ir ANTES que app.use(bodyParser.json()).
+
+// --- CONFIGURACIÓN DE MIDDLEWARE ---
+// 1. Webhook de Stripe (debe ir antes que bodyParser.json)
 app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
   let event;
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
-    console.log(`❌ Error de verificación de webhook: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Manejar el evento de pago exitoso
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
-    const idAlumno = paymentIntent.metadata.id_alumno;
+    const { id_alumno, anio_pago, mes_pago } = paymentIntent.metadata;
 
-    if (!idAlumno) {
-      console.log("⚠️ Webhook recibido sin id_alumno en metadata.");
-      return res.status(400).send("Metadata incompleta.");
+    if (!id_alumno || !anio_pago || !mes_pago) {
+      return res.status(400).send("Metadata incompleta en el webhook.");
     }
     
-    console.log(`✅ Webhook: Pago exitoso para el alumno: ${idAlumno}`);
-
     const client = await pool.connect();
     try {
-      await client.query('BEGIN'); // Iniciar transacción
-
-      // 1. Actualizar las clases disponibles del alumno
-      const updateResult = await client.query(
-        `UPDATE alumnos 
-         SET clases_disponibles = clases_disponibles + plan_clases
-         WHERE id_alumno = $1
-         RETURNING nombre, clases_disponibles`,
-        [idAlumno]
-      );
-      
-      console.log(`   -> Clases actualizadas para ${updateResult.rows[0].nombre}. Ahora tiene ${updateResult.rows[0].clases_disponibles}.`);
-      
-      // 2. Insertar el registro del pago en la nueva tabla 'pagos'
+      await client.query('BEGIN');
       await client.query(
-        `INSERT INTO pagos (id_alumno, stripe_payment_intent_id, monto, moneda, estado)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [idAlumno, paymentIntent.id, paymentIntent.amount, paymentIntent.currency, paymentIntent.status]
+        `UPDATE alumnos SET clases_disponibles = clases_disponibles + plan_clases WHERE id_alumno = $1`,
+        [id_alumno]
       );
-      
-      console.log(`   -> Registro de pago creado en la tabla 'pagos'.`);
-
-
-          // 3. Insertar el "pase de acceso" en 'meses_pagados'
       await client.query(
-        `INSERT INTO meses_pagados (id_alumno, anio, mes, id_pago_stripe)
-         VALUES ($1, EXTRACT(YEAR FROM NOW()), EXTRACT(MONTH FROM NOW()), $2)`,
-        [idAlumno, paymentIntent.id]
+        `INSERT INTO pagos (id_alumno, stripe_payment_intent_id, monto, moneda, estado) VALUES ($1, $2, $3, $4, $5)`,
+        [id_alumno, paymentIntent.id, paymentIntent.amount, paymentIntent.currency, paymentIntent.status]
       );
-      console.log(`   -> Pase de acceso creado en 'meses_pagados'.`);
-
-
-
-      await client.query('COMMIT'); // Confirmar transacción
+      await client.query(
+        `INSERT INTO meses_pagados (id_alumno, anio, mes) VALUES ($1, $2, $3)`,
+        [id_alumno, anio_pago, mes_pago]
+      );
+      await client.query('COMMIT');
+      console.log(`✅ TRANSACCIÓN COMPLETADA para alumno ${id_alumno}, mes ${mes_pago}/${anio_pago}.`);
     } catch (dbError) {
-      await client.query('ROLLBACK'); // Revertir en caso de error
-      console.error('❌ Error en la transacción del webhook:', dbError);
+      await client.query('ROLLBACK');
+      console.error('❌ Error en transacción, ROLLBACK ejecutado:', dbError);
       return res.status(500).json({ error: "Error de base de datos" });
     } finally {
       client.release();
     }
-  } else {
-    console.log(`Evento no manejado: ${event.type}`);
   }
-
+  
   res.json({received: true});
 });
-
 
 
 
@@ -180,30 +153,17 @@ app.post("/register", async (req, res) => {
 
 
 // --- NUEVO ENDPOINT PARA VERIFICAR SI UN MES ESTÁ PAGADO ---
-app.get("/estado-mes/:idAlumno/:anio/:mes", async (req, res) => {
-  // 1. Recogemos los datos que nos preguntan: quién, qué año y qué mes.
-  const { idAlumno, anio, mes } = req.params;
-
-  // Imprimimos en la consola de Render para que veas la pregunta que llega.
-  console.log(`Consultando estado para Alumno: ${idAlumno}, Año: ${anio}, Mes: ${mes}`);
-
+// Endpoint para que el frontend consulte los meses pagados
+app.get("/meses-pagados/:idAlumno", async (req, res) => {
+  const { idAlumno } = req.params;
   try {
-    // 2. Buscamos en nuestro "cuaderno" de meses_pagados.
     const result = await pool.query(
-      `SELECT id_acceso FROM meses_pagados 
-       WHERE id_alumno = $1 AND anio = $2 AND mes = $3`,
-      [idAlumno, anio, mes]
+      "SELECT anio, mes FROM meses_pagados WHERE id_alumno = $1",
+      [idAlumno]
     );
-
-    // 3. Respondemos la pregunta.
-    // Si la consulta encontró una fila (result.rows.length > 0), significa que está pagado.
-    if (result.rows.length > 0) {
-      res.json({ pagado: true }); // Respondemos: SÍ, está pagado.
-    } else {
-      res.json({ pagado: false }); // Respondemos: NO, no está pagado.
-    }
+    res.json(result.rows);
   } catch (err) {
-    console.error("❌ Error en /estado-mes:", err);
+    console.error("❌ Error en /meses-pagados:", err);
     res.status(500).json({ error: "Error en el servidor" });
   }
 });
@@ -425,59 +385,45 @@ app.post("/change-password", async (req, res) => {
 
 //ENDPOINT PARA PAYMENT
 
-// 👇 CAMBIO 2: Actualizamos el endpoint de payment
-app.post("/create-payment-intent", async (req, res) => {
-  const { idAlumno } = req.body; 
 
-  if (!idAlumno) {
-    return res.status(400).json({ error: "Falta el ID del alumno." });
+// Endpoint para iniciar un pago para un mes específico
+app.post("/create-payment-intent", async (req, res) => {
+  const { idAlumno, anio, mes } = req.body;
+
+  if (!idAlumno || !anio || !mes) {
+    return res.status(400).json({ error: "Faltan datos para procesar el pago." });
   }
 
   try {
-    // 1. Buscar el plan de clases del alumno
-    const result = await pool.query(
-      "SELECT plan_clases FROM alumnos WHERE id_alumno = $1",
-      [idAlumno]
-    );
+    const alumnoResult = await pool.query("SELECT plan_clases FROM alumnos WHERE id_alumno = $1", [idAlumno]);
+    if (alumnoResult.rows.length === 0) return res.status(404).json({ error: "Alumno no encontrado." });
+    
+    const planDelAlumno = alumnoResult.rows[0].plan_clases;
+    const precios = { 0: 100, 2: 150, 4: 200 };
+    const amount = precios[planDelAlumno];
+    
+    if (!amount) return res.status(400).json({ error: "Plan de clases no válido." });
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Alumno no encontrado" });
-    }
-
-    const planClases = result.rows[0].plan_clases;
-
-    // 2. Tabla de precios (en céntimos)
-    const precios = {
-      0: 100,  // 1 €
-      2: 150,  // 1,5 €
-      4: 200   // 2 €
-    };
-
-    const amount = precios[planClases];
-
-    if (!amount) {
-      return res.status(400).json({ error: "Plan de clases no válido." });
-    }
-
-    // 3. Crear PaymentIntent en Stripe
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
-      metadata: { id_alumno: idAlumno },
+      metadata: {
+        id_alumno: idAlumno,
+        anio_pago: anio,
+        mes_pago: mes,
+      },
     });
 
-    res.send({
-  clientSecret: paymentIntent.client_secret,
-  amount: amount / 100 // lo devolvemos en euros para el frontend
-});
-
+    res.send({ 
+      clientSecret: paymentIntent.client_secret,
+      amount: amount / 100 
+    });
   } catch (err) {
-    console.error("❌ Error en Stripe:", err);
-    res.status(500).json({ error: err.message });
+    console.error("❌ Error en /create-payment-intent:", err);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-
 
 
 app.listen(port, "0.0.0.0", () => {
