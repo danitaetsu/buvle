@@ -152,6 +152,7 @@ app.post("/register", async (req, res) => {
 });
 
 // --- ENDPOINT PARA ACTUALIZAR EL PLAN DE CLASES ---
+// --- ENDPOINT PARA ACTUALIZAR EL PLAN DE CLASES ---
 app.post("/update-plan", async (req, res) => {
   const { idAlumno, nuevoPlan } = req.body;
 
@@ -170,7 +171,6 @@ app.post("/update-plan", async (req, res) => {
     res.status(500).json({ success: false, message: "Error en el servidor." });
   }
 });
-
 
 // --- NUEVO ENDPOINT PARA VERIFICAR SI UN MES ESTÁ PAGADO ---
 // Endpoint para que el frontend consulte los meses pagados
