@@ -10,11 +10,9 @@ const port = process.env.PORT || 3000;
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-
-
-
 // --- CONFIGURACIÓN DE MIDDLEWARE ---
-// 1. Webhook de Stripe (debe ir antes que bodyParser.json)
+
+// ✨ ACTUALIZADO: Webhook de Stripe mejorado para diferenciar pagos
 app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -28,38 +26,58 @@ app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (r
 
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
-    const { id_alumno, anio_pago, mes_pago } = paymentIntent.metadata;
+    // ✨ NUEVO: Leemos 'tipo_pago' de los metadatos para diferenciar
+    const { id_alumno, anio_pago, mes_pago, tipo_pago } = paymentIntent.metadata;
 
-    if (!id_alumno || !anio_pago || !mes_pago) {
-      return res.status(400).send("Metadata incompleta en el webhook.");
-    }
-    
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        `UPDATE alumnos SET clases_disponibles = clases_disponibles + plan_clases WHERE id_alumno = $1`,
-        [id_alumno]
-      );
+
+      // 1. Insertar en la tabla 'pagos' (esto es común a ambos tipos)
       await client.query(
         `INSERT INTO pagos (id_alumno, stripe_payment_intent_id, monto, moneda, estado) VALUES ($1, $2, $3, $4, $5)`,
         [id_alumno, paymentIntent.id, paymentIntent.amount, paymentIntent.currency, paymentIntent.status]
       );
-      await client.query(
-        `INSERT INTO meses_pagados (id_alumno, anio, mes) VALUES ($1, $2, $3)`,
-        [id_alumno, anio_pago, mes_pago]
-      );
+
+      // 2. Lógica específica según el tipo de pago
+      if (tipo_pago === 'matricula') {
+        if (!id_alumno || !anio_pago) {
+          throw new Error("Metadata incompleta para pago de matrícula.");
+        }
+        const mesDePagoMatricula = new Date().getMonth() + 1;
+        await client.query(
+          `INSERT INTO matriculas_pagadas (id_alumno, anio, mes, stripe_payment_intent_id) VALUES ($1, $2, $3, $4)`,
+          [id_alumno, anio_pago, mesDePagoMatricula, paymentIntent.id]
+        );
+        console.log(`✅ MATRÍCULA PAGADA para alumno ${id_alumno}, año ${anio_pago}.`);
+
+      } else { // Si no es matrícula, es un pago de mes normal
+        if (!id_alumno || !anio_pago || !mes_pago) {
+          throw new Error("Metadata incompleta para pago mensual.");
+        }
+        await client.query(
+          `UPDATE alumnos SET clases_disponibles = clases_disponibles + plan_clases WHERE id_alumno = $1`,
+          [id_alumno]
+        );
+        await client.query(
+          `INSERT INTO meses_pagados (id_alumno, anio, mes) VALUES ($1, $2, $3)`,
+          [id_alumno, anio_pago, mes_pago]
+        );
+        console.log(`✅ MES PAGADO para alumno ${id_alumno}, mes ${mes_pago}/${anio_pago}.`);
+      }
+
       await client.query('COMMIT');
-      console.log(`✅ TRANSACCIÓN COMPLETADA para alumno ${id_alumno}, mes ${mes_pago}/${anio_pago}.`);
+      console.log(`✅ TRANSACCIÓN COMPLETADA para payment_intent ${paymentIntent.id}.`);
+
     } catch (dbError) {
       await client.query('ROLLBACK');
-      console.error('❌ Error en transacción, ROLLBACK ejecutado:', dbError);
-      return res.status(500).json({ error: "Error de base de datos" });
+      console.error('❌ Error en transacción del webhook, ROLLBACK ejecutado:', dbError);
+      return res.status(500).json({ error: "Error de base de datos procesando el webhook" });
     } finally {
       client.release();
     }
   }
-  
+
   res.json({received: true});
 });
 
@@ -131,10 +149,8 @@ app.post("/register", async (req, res) => {
       return res.status(400).json({ success: false, message: "El correo ya está registrado" });
     }
 
-       // ✨ Hacemos el valor explícito para que no haya dudas.
     const clasesDisponiblesIniciales = 0;
 
-    // ✨ AÑADIMOS ESTE CONSOLE.LOG PARA DEPURAR
     console.log(`Intentando registrar a ${email} con plan ${plan_clases} y ${clasesDisponiblesIniciales} clases disponibles.`);
 
     await pool.query(
@@ -172,7 +188,6 @@ app.post("/update-plan", async (req, res) => {
   }
 });
 
-// --- NUEVO ENDPOINT PARA VERIFICAR SI UN MES ESTÁ PAGADO ---
 // Endpoint para que el frontend consulte los meses pagados
 app.get("/meses-pagados/:idAlumno", async (req, res) => {
   const { idAlumno } = req.params;
@@ -188,6 +203,23 @@ app.get("/meses-pagados/:idAlumno", async (req, res) => {
   }
 });
 
+// ✨ NUEVO: Endpoint para verificar si la matrícula de un año está pagada
+app.get("/matricula-pagada/:idAlumno/:anio", async (req, res) => {
+  const { idAlumno, anio } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT id_matricula FROM matriculas_pagadas WHERE id_alumno = $1 AND anio = $2",
+      [idAlumno, anio]
+    );
+    // Devuelve true si encuentra al menos una fila, false si no.
+    res.json({ pagada: result.rows.length > 0 });
+  } catch (err) {
+    console.error("❌ Error en /matricula-pagada:", err);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+});
+
+
 // FORGOT PASSWORD
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -199,15 +231,12 @@ app.post("/forgot-password", async (req, res) => {
       return res.status(404).json({ success: false, message: "No existe usuario con ese correo" });
     }
 
-    // generar contraseña temporal
     const tempPassword = Math.random().toString(36).slice(-8);
 
-    // actualizar en BD
     await pool.query("UPDATE alumnos SET password = $1 WHERE email = $2", [tempPassword, email]);
 
-    // enviar correo con Resend
     await resend.emails.send({
-      from: "Buvle <onboarding@resend.dev>", // puedes usar dominio verificado
+      from: "Buvle <onboarding@resend.dev>",
       to: email,
       subject: "Recuperación de contraseña",
       text: `Hola ${result.rows[0].nombre},\n\nTu nueva contraseña temporal es: ${tempPassword}\n\nPor favor cámbiala después de iniciar sesión.`,
@@ -254,8 +283,8 @@ app.get("/reservas-rango", async (req, res) => {
     const events = result.rows.map(row => ({
       id: row.id_reserva,
       title: row.nombre,
-      start: `${row.fecha_clase.toISOString().split("T")[0]}T${row.hora_inicio}:00`,
-      end: `${row.fecha_clase.toISOString().split("T")[0]}T${row.hora_fin}:00`,
+      start: `${row.fecha_clase.toISOString().split("T")[0]}T${row.hora_inicio}`,
+      end: `${row.fecha_clase.toISOString().split("T")[0]}T${row.hora_fin}`,
       id_turno: row.id_turno,
       id_alumno: row.id_alumno
     }));
@@ -404,8 +433,7 @@ app.post("/change-password", async (req, res) => {
   }
 });
 
-//ENDPOINT PARA PAYMENT
-
+//--- ENDPOINTS PARA PAGOS ---
 
 // Endpoint para iniciar un pago para un mes específico
 app.post("/create-payment-intent", async (req, res) => {
@@ -420,7 +448,7 @@ app.post("/create-payment-intent", async (req, res) => {
     if (alumnoResult.rows.length === 0) return res.status(404).json({ error: "Alumno no encontrado." });
     
     const planDelAlumno = alumnoResult.rows[0].plan_clases;
-    const precios = { 0: 100, 2: 150, 4: 200 };
+    const precios = { 0: 100, 2: 150, 4: 200 }; // Precios en céntimos
     const amount = precios[planDelAlumno];
     
     if (!amount) return res.status(400).json({ error: "Plan de clases no válido." });
@@ -433,6 +461,7 @@ app.post("/create-payment-intent", async (req, res) => {
         id_alumno: idAlumno,
         anio_pago: anio,
         mes_pago: mes,
+        // tipo_pago: 'mensual' (opcional, ya que es el default)
       },
     });
 
@@ -446,9 +475,40 @@ app.post("/create-payment-intent", async (req, res) => {
   }
 });
 
+// ✨ NUEVO: Endpoint para iniciar un pago de matrícula
+app.post("/create-matricula-payment-intent", async (req, res) => {
+  const { idAlumno, anio } = req.body;
+
+  if (!idAlumno || !anio) {
+    return res.status(400).json({ error: "Faltan datos para procesar el pago de matrícula." });
+  }
+
+  // Asumimos un precio fijo para la matrícula, por ejemplo 50€ (5000 céntimos)
+  const amount = 250;
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "eur",
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        id_alumno: idAlumno,
+        anio_pago: anio,
+        tipo_pago: 'matricula' // ¡Clave para diferenciarlo en el webhook!
+      },
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+      amount: amount / 100
+    });
+  } catch (err) {
+    console.error("❌ Error en /create-matricula-payment-intent:", err);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Servidor corriendo en http://0.0.0.0:${port}`);
 });
-
-// Version web
