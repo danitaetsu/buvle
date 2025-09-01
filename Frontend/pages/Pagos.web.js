@@ -306,3 +306,6 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
     </div>
   );
 }
+
+
+//version prueba para rama
