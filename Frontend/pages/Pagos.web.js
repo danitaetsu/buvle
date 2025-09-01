@@ -266,3 +266,5 @@ export default function PagosWeb({ tipoPago, idAlumno }) {
     </div>
   );
 }
+
+//Version web
