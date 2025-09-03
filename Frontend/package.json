@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.0",
+    "@expo/vector-icons": "^14.1.0",
     "@expo/webpack-config": "^19.0.1",
     "@react-native-picker/picker": "^2.11.1",
     "@stripe/react-stripe-js": "^3.9.1",

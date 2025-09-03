@@ -1,33 +1,47 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Button } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Button, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons'; // 👀 necesitas instalar expo/vector-icons si no lo tienes
 
 export default function Register({ setIsRegistering }) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [planClases, setPlanClases] = useState('4'); // por defecto 4 clases
-  const [tipoPago, setTipoPago] = useState('1'); // 1 = Pago en App por defecto
-  const [mesMatricula, setMesMatricula] = useState('1'); // por defecto Enero
+  const [planClases, setPlanClases] = useState('4');
+  const [tipoPago, setTipoPago] = useState('1');
+  const [mesMatricula, setMesMatricula] = useState('1');
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // ✅ Validaciones
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 8 && /\d/.test(password);
+  };
 
   const handleRegister = async () => {
-    // Validación extra por seguridad
-    if (planClases === '0' && mesMatricula !== '0') {
-      setErrorMessage('Si eliges clases sueltas, el mes debe ser "Clases sueltas"');
-      return;
-    }
-    if ((planClases === '2' || planClases === '4') && mesMatricula === '0') {
-      setErrorMessage('Debes elegir un mes válido si seleccionas 2 o 4 clases');
-      return;
-    }
-
-    if (!nombre || !email || !password || !confirmPassword || !planClases || !tipoPago || mesMatricula === undefined) {
+    if (!nombre || !email || !password || !confirmPassword) {
       setErrorMessage('Todos los campos son obligatorios');
       return;
     }
+
+    if (!validateEmail(email)) {
+      setErrorMessage('El email no tiene un formato válido');
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      setErrorMessage('La contraseña debe tener al menos 8 caracteres y un número');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setErrorMessage('Las contraseñas no coinciden');
       return;
@@ -53,7 +67,7 @@ export default function Register({ setIsRegistering }) {
       if (response.ok) {
         setErrorMessage('');
         setSuccessMessage('Registro exitoso. ¡Ahora puedes iniciar sesión!');
-        setTimeout(() => setIsRegistering(false), 2000); // volver al login
+        setTimeout(() => setIsRegistering(false), 2000);
       } else {
         setErrorMessage(data.message || 'No se pudo completar el registro');
       }
@@ -82,22 +96,36 @@ export default function Register({ setIsRegistering }) {
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirmar Contraseña"
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-      />
 
-      {/* Selector de formato de clases */}
+      {/* Campo Contraseña con ojito */}
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Contraseña"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="gray" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Confirmar Contraseña con ojito */}
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Confirmar Contraseña"
+          secureTextEntry={!showConfirmPassword}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
+        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+          <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={24} color="gray" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Selectores */}
       <Text style={styles.label}>Formato de Clases</Text>
       <Picker
         selectedValue={planClases}
@@ -105,9 +133,9 @@ export default function Register({ setIsRegistering }) {
         onValueChange={(itemValue) => {
           setPlanClases(itemValue);
           if (itemValue === '0') {
-            setMesMatricula('0'); // solo opción clases sueltas
+            setMesMatricula('0');
           } else if (mesMatricula === '0') {
-            setMesMatricula('1'); // fuerza a Enero si estaba en "0"
+            setMesMatricula('1');
           }
         }}
       >
@@ -116,7 +144,6 @@ export default function Register({ setIsRegistering }) {
         <Picker.Item label="4 clases al mes" value="4" />
       </Picker>
 
-      {/* Selector de mes de matrícula */}
       <Text style={styles.label}>Mes de Matrícula</Text>
       <Picker
         selectedValue={mesMatricula}
@@ -154,43 +181,13 @@ export default function Register({ setIsRegistering }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-  },
-  label: {
-    alignSelf: 'flex-start',
-    marginBottom: 5,
-    fontWeight: 'bold',
-  },
-  error: {
-    color: 'red',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  success: {
-    color: 'green',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  backToLoginContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  input: { width: '100%', padding: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 5, marginBottom: 10, backgroundColor: '#fff' },
+  label: { alignSelf: 'flex-start', marginBottom: 5, fontWeight: 'bold' },
+  error: { color: 'red', marginBottom: 10, textAlign: 'center' },
+  success: { color: 'green', marginBottom: 10, textAlign: 'center' },
+  backToLoginContainer: { marginTop: 20, alignItems: 'center' },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', width: '100%', borderWidth: 1, borderColor: '#ccc', borderRadius: 5, marginBottom: 10, backgroundColor: '#fff', paddingHorizontal: 10 },
+  passwordInput: { flex: 1, padding: 10 },
 });

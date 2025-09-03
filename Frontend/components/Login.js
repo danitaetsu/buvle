@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, Alert, StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons"; // 👀
 
 export default function Login({ 
   setIsLoggedIn, 
@@ -13,6 +14,7 @@ export default function Login({
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const baseUrl = "https://buvle-backend.onrender.com";
 
@@ -26,11 +28,9 @@ export default function Login({
       const json = await res.json();
 
       if (json.success) {
-        // Guardar la info básica
         setNombre(json.alumno.nombre);
         setIdAlumno(json.alumno.id_alumno);
 
-        // Guardar nuevos campos
         if (setTipoPago) setTipoPago(json.alumno.tipo_pago);
         if (setMesMatricula) setMesMatricula(json.alumno.mes_matricula);
         if (setPlanClases) setPlanClases(json.alumno.plan_clases);
@@ -57,13 +57,19 @@ export default function Login({
         autoCapitalize="none"
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      {/* Campo de contraseña con ojito */}
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="gray" />
+        </TouchableOpacity>
+      </View>
 
       <Pressable style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Entrar</Text>
@@ -113,5 +119,18 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: "blue",
     textAlign: "center",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    marginBottom: 15,
+    paddingHorizontal: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 10,
   },
 });
