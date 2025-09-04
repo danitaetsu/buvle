@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 
 export default function Password({ setIsRecovering }) {
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState(null); // "success" | "error"
   const baseUrl = "https://buvle-backend.onrender.com";
 
   const handleRecover = async () => {
     if (!email) {
-      Alert.alert("Error", "Introduce tu correo");
+      setMessage("Introduce tu correo");
+      setMessageType("error");
       return;
     }
     try {
@@ -18,14 +21,18 @@ export default function Password({ setIsRecovering }) {
       });
       const json = await res.json();
       if (json.success) {
-        Alert.alert("Éxito", "Se ha enviado una nueva contraseña a tu correo");
-        setIsRecovering(false); // volver al login
+        setMessage("✅ Se ha enviado una nueva contraseña a tu correo");
+        setMessageType("success");
+        // Opcional: esperar unos segundos y volver al login
+        setTimeout(() => setIsRecovering(false), 2500);
       } else {
-        Alert.alert("Error", json.message || "No se pudo enviar la contraseña");
+        setMessage(json.message || "No se pudo enviar la contraseña");
+        setMessageType("error");
       }
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "No se pudo conectar al servidor");
+      setMessage("No se pudo conectar al servidor");
+      setMessageType("error");
     }
   };
 
@@ -40,6 +47,18 @@ export default function Password({ setIsRecovering }) {
         onChangeText={setEmail}
         autoCapitalize="none"
       />
+
+      {/* Mensaje en pantalla */}
+      {message ? (
+        <Text
+          style={[
+            styles.message,
+            messageType === "success" ? styles.success : styles.error,
+          ]}
+        >
+          {message}
+        </Text>
+      ) : null}
 
       <Pressable style={styles.button} onPress={handleRecover}>
         <Text style={styles.buttonText}>Enviar</Text>
@@ -86,4 +105,11 @@ const styles = StyleSheet.create({
     color: "blue",
     textAlign: "center",
   },
+  message: {
+    textAlign: "center",
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  success: { color: "green" },
+  error: { color: "red" },
 });

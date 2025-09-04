@@ -484,6 +484,7 @@ app.post("/create-payment-intent", async (req, res) => {
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
+      receipt_email: email,
       metadata: {
         id_alumno: idAlumno,
         anio_pago: anio,
@@ -510,7 +511,7 @@ app.post("/create-matricula-payment-intent", async (req, res) => {
     return res.status(400).json({ error: "Faltan datos para procesar el pago de matrícula." });
   }
 
-  // Asumimos un precio fijo para la matrícula, por ejemplo 50€ (5000 céntimos)
+  // Asumimos un precio fijo para la matrícula
   const amount = 250;
 
   try {
@@ -518,6 +519,7 @@ app.post("/create-matricula-payment-intent", async (req, res) => {
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
+      receipt_email: email,
       metadata: {
         id_alumno: idAlumno,
         anio_pago: anio,
