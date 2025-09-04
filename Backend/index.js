@@ -484,7 +484,6 @@ app.post("/create-payment-intent", async (req, res) => {
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
-      receipt_email: email,
       metadata: {
         id_alumno: idAlumno,
         anio_pago: anio,
@@ -519,7 +518,6 @@ app.post("/create-matricula-payment-intent", async (req, res) => {
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
-      receipt_email: email,
       metadata: {
         id_alumno: idAlumno,
         anio_pago: anio,
