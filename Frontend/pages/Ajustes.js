@@ -1,10 +1,18 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 
-// ✨ NUEVO: Reutilizamos el componente del ojo
+// 👁️ Icono para mostrar/ocultar contraseñas
 const EyeIcon = ({ onPress, isPasswordVisible }) => (
   <TouchableOpacity onPress={onPress} style={styles.eyeIcon}>
-    <Text>{isPasswordVisible ? '🙈' : '👁️'}</Text>
+    <Text>{isPasswordVisible ? "🙈" : "👁️"}</Text>
   </TouchableOpacity>
 );
 
@@ -13,59 +21,69 @@ export default function Ajustes({ idAlumno }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // ✨ NUEVO: Estados para la visibilidad y carga
   const [isOldPassVisible, setOldPassVisible] = useState(false);
   const [isNewPassVisible, setNewPassVisible] = useState(false);
   const [isConfirmPassVisible, setConfirmPassVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); // Para mostrar un spinner
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState(null); // "success" | "error"
 
   const baseUrl = "https://buvle-backend.onrender.com";
 
-  // ✨ NUEVO: Función de validación
   const validatePasswords = () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
-      Alert.alert("Error", "Completa todos los campos");
+      setMessage("Completa todos los campos");
+      setMessageType("error");
       return false;
     }
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
-      Alert.alert('Contraseña débil', 'La nueva contraseña debe tener al menos 8 caracteres y un número.');
+      setMessage("La nueva contraseña debe tener al menos 8 caracteres y un número.");
+      setMessageType("error");
       return false;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert("Error", "Las nuevas contraseñas no coinciden");
+      setMessage("Las nuevas contraseñas no coinciden");
+      setMessageType("error");
       return false;
     }
     return true;
   };
 
   const handleChangePassword = async () => {
-    if (!validatePasswords()) {
-      return;
-    }
+    if (!validatePasswords()) return;
 
-    setIsLoading(true); // Inicia la carga
+    setIsLoading(true);
+    setMessage(""); // limpia mensajes previos
+    setMessageType(null);
+
     try {
       const res = await fetch(`${baseUrl}/change-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idAlumno, oldPassword, newPassword }),
       });
+
       const json = await res.json();
+      console.log("Respuesta /change-password:", json);
 
       if (json.success) {
-        Alert.alert("Éxito", "Contraseña actualizada correctamente");
+        setMessage("Contraseña actualizada correctamente ✅");
+        setMessageType("success");
         setOldPassword("");
         setNewPassword("");
         setConfirmPassword("");
       } else {
-        Alert.alert("Error", json.message || "No se pudo cambiar la contraseña");
+        setMessage(json.message || "No se pudo cambiar la contraseña");
+        setMessageType("error");
       }
     } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "No se pudo conectar al servidor");
+      console.error("❌ Error en handleChangePassword:", err);
+      setMessage("No se pudo conectar al servidor");
+      setMessageType("error");
     } finally {
-      setIsLoading(false); // Termina la carga
+      setIsLoading(false);
     }
   };
 
@@ -74,7 +92,7 @@ export default function Ajustes({ idAlumno }) {
       <Text style={styles.title}>Ajustes</Text>
       <Text style={styles.subtitle}>Cambiar contraseña</Text>
 
-      {/* ✨ NUEVO: Campos de contraseña con visibilidad */}
+      {/* Campo contraseña actual */}
       <View style={styles.passwordContainer}>
         <TextInput
           style={styles.inputPassword}
@@ -83,9 +101,13 @@ export default function Ajustes({ idAlumno }) {
           value={oldPassword}
           onChangeText={setOldPassword}
         />
-        <EyeIcon onPress={() => setOldPassVisible(!isOldPassVisible)} isPasswordVisible={isOldPassVisible} />
+        <EyeIcon
+          onPress={() => setOldPassVisible(!isOldPassVisible)}
+          isPasswordVisible={isOldPassVisible}
+        />
       </View>
 
+      {/* Campo nueva contraseña */}
       <View style={styles.passwordContainer}>
         <TextInput
           style={styles.inputPassword}
@@ -94,9 +116,13 @@ export default function Ajustes({ idAlumno }) {
           value={newPassword}
           onChangeText={setNewPassword}
         />
-        <EyeIcon onPress={() => setNewPassVisible(!isNewPassVisible)} isPasswordVisible={isNewPassVisible} />
+        <EyeIcon
+          onPress={() => setNewPassVisible(!isNewPassVisible)}
+          isPasswordVisible={isNewPassVisible}
+        />
       </View>
-      
+
+      {/* Campo confirmar contraseña */}
       <View style={styles.passwordContainer}>
         <TextInput
           style={styles.inputPassword}
@@ -105,11 +131,30 @@ export default function Ajustes({ idAlumno }) {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
-        <EyeIcon onPress={() => setConfirmPassVisible(!isConfirmPassVisible)} isPasswordVisible={isConfirmPassVisible} />
+        <EyeIcon
+          onPress={() => setConfirmPassVisible(!isConfirmPassVisible)}
+          isPasswordVisible={isConfirmPassVisible}
+        />
       </View>
 
-      {/* 🐛 CORREGIDO: Botón ahora deshabilita y muestra un spinner al cargar */}
-      <Pressable style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleChangePassword} disabled={isLoading}>
+      {/* Mensajes en pantalla */}
+      {message ? (
+        <Text
+          style={[
+            styles.message,
+            messageType === "success" ? styles.success : styles.error,
+          ]}
+        >
+          {message}
+        </Text>
+      ) : null}
+
+      {/* Botón */}
+      <Pressable
+        style={[styles.button, isLoading && styles.buttonDisabled]}
+        onPress={handleChangePassword}
+        disabled={isLoading}
+      >
         {isLoading ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -121,50 +166,30 @@ export default function Ajustes({ idAlumno }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 18,
-    marginBottom: 15,
-    textAlign: "center",
-  },
+  container: { flex: 1, justifyContent: "center", padding: 20 },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  subtitle: { fontSize: 18, marginBottom: 15, textAlign: "center" },
   passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 6,
     marginBottom: 15,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
-  inputPassword: {
-    flex: 1,
-    padding: 10,
-  },
-  eyeIcon: {
-    padding: 10,
-  },
+  inputPassword: { flex: 1, padding: 10 },
+  eyeIcon: { padding: 10 },
   button: {
     backgroundColor: "#007AFF",
     padding: 15,
     borderRadius: 6,
     alignItems: "center",
   },
-  buttonDisabled: {
-    backgroundColor: '#A9A9A9',
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-  },
+  buttonDisabled: { backgroundColor: "#A9A9A9" },
+  buttonText: { color: "white", fontWeight: "bold" },
+  message: { textAlign: "center", marginBottom: 15, fontSize: 16 },
+  success: { color: "green" },
+  error: { color: "red" },
 });
