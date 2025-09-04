@@ -223,31 +223,58 @@ app.get("/matricula-pagada/:idAlumno/:anio", async (req, res) => {
 // FORGOT PASSWORD
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ success: false, message: "Email requerido" });
+  if (!email) {
+    return res.status(400).json({ success: false, message: "Email requerido" });
+  }
 
   try {
-    const result = await pool.query("SELECT id_alumno, nombre FROM alumnos WHERE email = $1", [email]);
+    const result = await pool.query(
+      "SELECT id_alumno, nombre FROM alumnos WHERE email = $1",
+      [email]
+    );
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "No existe usuario con ese correo" });
+      return res
+        .status(404)
+        .json({ success: false, message: "No existe usuario con ese correo" });
     }
 
+    // Generar contraseña temporal
     const tempPassword = Math.random().toString(36).slice(-8);
 
-    await pool.query("UPDATE alumnos SET password = $1 WHERE email = $2", [tempPassword, email]);
+    // Guardar en DB
+    await pool.query("UPDATE alumnos SET password = $1 WHERE email = $2", [
+      tempPassword,
+      email,
+    ]);
 
+    // Enviar email con Resend
     await resend.emails.send({
-      from: "Buvle <onboarding@resend.dev>",
+      from: "Buvle <info@buvle.es>", // ✅ Usa tu correo real verificado
       to: email,
       subject: "Recuperación de contraseña",
-      text: `Hola ${result.rows[0].nombre},\n\nTu nueva contraseña temporal es: ${tempPassword}\n\nPor favor cámbiala después de iniciar sesión.`,
+      text: `Hola ${result.rows[0].nombre},
+
+Tu nueva contraseña temporal es: ${tempPassword}
+
+Por favor cámbiala después de iniciar sesión.
+
+Saludos,
+Equipo Buvle`,
     });
 
-    res.json({ success: true, message: "Se ha enviado una nueva contraseña al correo" });
+    res.json({
+      success: true,
+      message: "Se ha enviado una nueva contraseña al correo",
+    });
   } catch (err) {
     console.error("❌ Error en /forgot-password:", err);
-    res.status(500).json({ success: false, message: "Error en el servidor" });
+    res
+      .status(500)
+      .json({ success: false, message: "Error en el servidor" });
   }
 });
+
 
 // TURNOS
 app.get("/turnos", async (req, res) => {
