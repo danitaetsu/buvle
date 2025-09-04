@@ -283,6 +283,7 @@ export default function Horario({ id_alumno, setCurrentPage }) {
           eventCellStyle={(event) => ({ backgroundColor: event.isMine ? "red" : "green" })}
           sortedMonthView={false}
           isEventOrderingEnabled={false}
+          swipeEnabled={false} 
           dayHeaderStyle={(date) => {
             const day = date.getDay();
             if (day === 0 || day === 6) { return { opacity: 0.5, fontSize: 10 }; }
