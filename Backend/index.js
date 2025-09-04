@@ -471,30 +471,41 @@ app.post("/create-payment-intent", async (req, res) => {
   }
 
   try {
-    const alumnoResult = await pool.query("SELECT plan_clases FROM alumnos WHERE id_alumno = $1", [idAlumno]);
-    if (alumnoResult.rows.length === 0) return res.status(404).json({ error: "Alumno no encontrado." });
-    
-    const planDelAlumno = alumnoResult.rows[0].plan_clases;
-    const precios = { 0: 100, 2: 150, 4: 200 }; // Precios en céntimos
-    const amount = precios[planDelAlumno];
-    
-    if (!amount) return res.status(400).json({ error: "Plan de clases no válido." });
+    // Traer plan de clases y email del alumno
+    const alumnoResult = await pool.query(
+      "SELECT plan_clases, email FROM alumnos WHERE id_alumno = $1",
+      [idAlumno]
+    );
+    if (alumnoResult.rows.length === 0) {
+      return res.status(404).json({ error: "Alumno no encontrado." });
+    }
+
+    const { plan_clases, email } = alumnoResult.rows[0];
+
+    // Precios en céntimos (los mismos que ya tenías)
+    const precios = { 0: 100, 2: 150, 4: 200 };
+    const amount = precios[plan_clases];
+
+    if (!amount) {
+      return res.status(400).json({ error: "Plan de clases no válido." });
+    }
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
+      receipt_email: email, // ✅ recibo por correo
       metadata: {
         id_alumno: idAlumno,
         anio_pago: anio,
         mes_pago: mes,
-        // tipo_pago: 'mensual' (opcional, ya que es el default)
+        tipo_pago: "mensual",
       },
     });
 
-    res.send({ 
+    res.send({
       clientSecret: paymentIntent.client_secret,
-      amount: amount / 100 
+      amount: amount / 100,
     });
   } catch (err) {
     console.error("❌ Error en /create-payment-intent:", err);
@@ -503,6 +514,7 @@ app.post("/create-payment-intent", async (req, res) => {
 });
 
 // ✨ NUEVO: Endpoint para iniciar un pago de matrícula
+// Endpoint para iniciar un pago de matrícula
 app.post("/create-matricula-payment-intent", async (req, res) => {
   const { idAlumno, anio } = req.body;
 
@@ -510,30 +522,43 @@ app.post("/create-matricula-payment-intent", async (req, res) => {
     return res.status(400).json({ error: "Faltan datos para procesar el pago de matrícula." });
   }
 
-  // Asumimos un precio fijo para la matrícula
-  const amount = 250;
-
   try {
+    // Traer email del alumno
+    const alumnoResult = await pool.query(
+      "SELECT email FROM alumnos WHERE id_alumno = $1",
+      [idAlumno]
+    );
+    if (alumnoResult.rows.length === 0) {
+      return res.status(404).json({ error: "Alumno no encontrado." });
+    }
+
+    const { email } = alumnoResult.rows[0];
+
+    // Precio actual de la matrícula (el que ya tenías definido: 250 céntimos = 2,50€)
+    const amount = 250;
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "eur",
       automatic_payment_methods: { enabled: true },
+      receipt_email: email, // ✅ recibo por correo
       metadata: {
         id_alumno: idAlumno,
         anio_pago: anio,
-        tipo_pago: 'matricula' // ¡Clave para diferenciarlo en el webhook!
+        tipo_pago: "matricula",
       },
     });
 
     res.send({
       clientSecret: paymentIntent.client_secret,
-      amount: amount / 100
+      amount: amount / 100,
     });
   } catch (err) {
     console.error("❌ Error en /create-matricula-payment-intent:", err);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+
 
 
 app.listen(port, "0.0.0.0", () => {
