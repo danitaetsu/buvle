@@ -483,7 +483,7 @@ app.post("/create-payment-intent", async (req, res) => {
     const { plan_clases, email } = alumnoResult.rows[0];
 
     // Precios en céntimos (los mismos que ya tenías)
-    const precios = { 0: 100, 2: 150, 4: 200 };
+    const precios = { 0: 2400, 2: 3500, 4: 6500 };
     const amount = precios[plan_clases];
 
     if (!amount) {
@@ -534,8 +534,8 @@ app.post("/create-matricula-payment-intent", async (req, res) => {
 
     const { email } = alumnoResult.rows[0];
 
-    // Precio actual de la matrícula (el que ya tenías definido: 250 céntimos = 2,50€)
-    const amount = 250;
+    // Precio actual de la matrícula
+    const amount = 2000;
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
