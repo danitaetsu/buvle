@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, Modal, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 export default function Formato({ planClases, idAlumno, onPlanChanged }) {
-  const baseUrl = "https://buvle-backend.onrender.com";
+  const baseUrl = "https://buvle-pruebas.onrender.com";
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(planClases);
 

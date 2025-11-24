@@ -16,7 +16,7 @@ export default function Login({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const baseUrl = "https://buvle-backend.onrender.com";
+  const baseUrl = "https://buvle-pruebas.onrender.com";
 
   const handleLogin = async () => {
     try {

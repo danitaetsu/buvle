@@ -29,7 +29,7 @@ export default function Ajustes({ idAlumno }) {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(null); // "success" | "error"
 
-  const baseUrl = "https://buvle-backend.onrender.com";
+  const baseUrl = "https://buvle-pruebas.onrender.com";
 
   const validatePasswords = () => {
     if (!oldPassword || !newPassword || !confirmPassword) {

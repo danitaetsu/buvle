@@ -5,7 +5,7 @@ export default function Password({ setIsRecovering }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(null); // "success" | "error"
-  const baseUrl = "https://buvle-backend.onrender.com";
+  const baseUrl = "https://buvle-pruebas.onrender.com";
 
   const handleRecover = async () => {
     if (!email) {

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 
 export default function Clases({ id_alumno }) {
-  const baseUrl = "https://buvle-backend.onrender.com";
+  const baseUrl = "https://buvle-pruebas.onrender.com";
 
   const [loading, setLoading] = useState(true);
   const [secciones, setSecciones] = useState([]); // ← historial agrupado por mes

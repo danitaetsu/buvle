@@ -11,7 +11,7 @@ import {
 import { Calendar } from "react-native-big-calendar";
 
 export default function Horario({ id_alumno, setCurrentPage }) {
-  const baseUrl = "https://buvle-backend.onrender.com";
+  const baseUrl = "https://buvle-pruebas.onrender.com";
 
   const [allEvents, setAllEvents] = useState([]); // todas las reservas
   const [events, setEvents] = useState([]); // eventos que se pintan en el calendario
