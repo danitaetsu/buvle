@@ -10,7 +10,7 @@ import {
 import { StripeProvider, useStripe } from "@stripe/stripe-react-native";
 
 // --- Configuración ---
-const PUBLISHABLE_KEY = "pk_live_51Q2sLs04VOrKio1OOc0cM0yNNrMAFuOqRIuM4Vrh8QqhqSdyNUB8fPj5jVdZauiOjyAA8pWxFMtvdarnzPeHic2m00IiftIRS1";
+const PUBLISHABLE_KEY = "pk_live_51H1CwxHRXfYIbKT9Wbwmvy7KVoC90E2WSEWGUxQjPKfsRc7kO4xpOXqTwQj92z9rJu2O5pnOcYXxXnFFH3is7lq700x4fByHde";
 const API_URL = "https://buvle-backend.onrender.com";
 
 // --- Pantalla de pagos ---
