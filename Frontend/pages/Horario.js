@@ -72,6 +72,7 @@ export default function Horario({ id_alumno, setCurrentPage }) {
     { start: "2026-03-30", end: "2026-04-03" },
     { start: "2026-05-01", end: "2026-05-01" },
     { start: "2026-05-15", end: "2026-05-15" },
+    { start: "2025-12-12", end: "2025-12-12" },
   ];
 
   const isBlockedDate = (date) => {
